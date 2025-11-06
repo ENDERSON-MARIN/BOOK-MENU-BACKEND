@@ -1,0 +1,409 @@
+import { Reservation } from "../entities/Reservation"
+import { User } from "../entities/User"
+import { ReservationRepository } from "../repositories/ReservationRepository"
+import { MenuRepository, MenuWithDetails } from "../repositories/MenuRepository"
+import { UserRepository } from "../repositories/UserRepository"
+import {
+  CreateReservationDTO,
+  UpdateReservationDTO,
+} from "../../dtos/ReservationDTOs"
+import { AppError } from "@/app/shared"
+
+export interface ReservationWithDetails extends Reservation {
+  menu?: MenuWithDetails
+  user?: User
+}
+
+export class ReservationService {
+  private readonly CUTOFF_HOUR = 8
+  private readonly CUTOFF_MINUTE = 30
+
+  constructor(
+    private reservationRepository: ReservationRepository,
+    private menuRepository: MenuRepository,
+    private userRepository: UserRepository
+  ) {}
+
+  async create(reservationData: CreateReservationDTO): Promise<Reservation> {
+    // Validate user exists and is active
+    const user = await this.userRepository.findById(reservationData.userId)
+    if (!user) {
+      throw new AppError("Usuário não encontrado", 404)
+    }
+    if (!user.isActive()) {
+      throw new AppError("Usuário inativo não pode fazer reservas", 400)
+    }
+
+    // Validate menu exists and is active
+    const menu = await this.menuRepository.findWithComposition(
+      reservationData.menuId
+    )
+    if (!menu) {
+      throw new AppError("Cardápio não encontrado", 404)
+    }
+    if (!menu.isActive) {
+      throw new AppError("Cardápio não está disponível", 400)
+    }
+
+    // Validate reservation date is not in the past
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    const reservationDate = new Date(reservationData.reservationDate)
+    reservationDate.setUTCHours(0, 0, 0, 0)
+
+    if (reservationDate < today) {
+      throw new AppError("Não é possível fazer reserva para data passada", 400)
+    }
+
+    // Validate reservation date matches menu date
+    const menuDate = new Date(menu.date)
+    menuDate.setUTCHours(0, 0, 0, 0)
+    if (reservationDate.getTime() !== menuDate.getTime()) {
+      throw new AppError(
+        "Data da reserva deve corresponder à data do cardápio",
+        400
+      )
+    }
+
+    // Check if user already has a reservation for this date
+    const existingReservation =
+      await this.reservationRepository.findByUserAndDate(
+        reservationData.userId,
+        reservationData.reservationDate
+      )
+    if (existingReservation && existingReservation.isActive()) {
+      throw new AppError("Usuário já possui reserva ativa para esta data", 409)
+    }
+
+    // Validate menu variation exists
+    const menuVariation = menu.variations.find(
+      (v) => v.id === reservationData.menuVariationId
+    )
+    if (!menuVariation) {
+      throw new AppError("Variação de cardápio não encontrada", 404)
+    }
+
+    // Check cutoff time for same-day reservations
+    if (reservationDate.getTime() === today.getTime()) {
+      if (!this.isWithinCutoffTime(new Date())) {
+        throw new AppError(
+          "Prazo para reservas do dia já expirou (limite: 8:30)",
+          400
+        )
+      }
+    }
+
+    const createdReservation =
+      await this.reservationRepository.create(reservationData)
+    return createdReservation
+  }
+
+  async findById(id: string): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+    return reservation
+  }
+
+  async findByUser(userId: string): Promise<Reservation[]> {
+    // Validate user exists
+    const user = await this.userRepository.findById(userId)
+    if (!user) {
+      throw new AppError("Usuário não encontrado", 404)
+    }
+
+    return await this.reservationRepository.findByUser(userId)
+  }
+
+  async findActiveByUser(userId: string): Promise<Reservation[]> {
+    const userReservations = await this.findByUser(userId)
+    return userReservations.filter((reservation) => reservation.isActive())
+  }
+
+  async findByUserAndDate(
+    userId: string,
+    date: Date
+  ): Promise<Reservation | null> {
+    return await this.reservationRepository.findByUserAndDate(userId, date)
+  }
+
+  async update(
+    id: string,
+    reservationData: UpdateReservationDTO
+  ): Promise<Reservation> {
+    const existingReservation = await this.reservationRepository.findById(id)
+    if (!existingReservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    // Check if reservation can be modified
+    if (!existingReservation.canBeModified()) {
+      throw new AppError(
+        "Reserva não pode ser alterada (prazo expirado ou cancelada)",
+        400
+      )
+    }
+
+    // If changing menu variation, validate it exists
+    if (reservationData.menuVariationId) {
+      const menu = await this.menuRepository.findWithComposition(
+        existingReservation.menuId
+      )
+      if (!menu) {
+        throw new AppError("Cardápio da reserva não encontrado", 404)
+      }
+
+      const menuVariation = menu.variations.find(
+        (v) => v.id === reservationData.menuVariationId
+      )
+      if (!menuVariation) {
+        throw new AppError("Variação de cardápio não encontrada", 404)
+      }
+    }
+
+    const updatedReservation = await this.reservationRepository.update(
+      id,
+      reservationData
+    )
+    return updatedReservation
+  }
+
+  async cancel(id: string): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    // Check if reservation can be cancelled
+    if (!reservation.canBeModified()) {
+      throw new AppError("Reserva não pode ser cancelada (prazo expirado)", 400)
+    }
+
+    if (reservation.isCancelled()) {
+      throw new AppError("Reserva já está cancelada", 400)
+    }
+
+    // Cancel reservation using entity method
+    reservation.cancel()
+
+    // Update in repository
+    const updatedReservation = await this.reservationRepository.update(id, {
+      status: reservation.status,
+    })
+
+    return updatedReservation
+  }
+
+  async reactivate(id: string): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    if (!reservation.isCancelled()) {
+      throw new AppError("Apenas reservas canceladas podem ser reativadas", 400)
+    }
+
+    // Check if reservation can be reactivated (within cutoff time)
+    if (!this.isWithinCutoffTime(new Date(), reservation.reservationDate)) {
+      throw new AppError(
+        "Prazo para reativar reserva já expirou (limite: 8:30)",
+        400
+      )
+    }
+
+    // Validate menu is still active
+    const menu = await this.menuRepository.findById(reservation.menuId)
+    if (!menu || !menu.isActive) {
+      throw new AppError("Cardápio não está mais disponível", 400)
+    }
+
+    // Reactivate reservation using entity method
+    reservation.activate()
+
+    // Update in repository
+    const updatedReservation = await this.reservationRepository.update(id, {
+      status: reservation.status,
+    })
+
+    return updatedReservation
+  }
+
+  async changeMenuVariation(
+    id: string,
+    newMenuVariationId: string
+  ): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    // Check if reservation can be modified
+    if (!reservation.canBeModified()) {
+      throw new AppError(
+        "Reserva não pode ser alterada (prazo expirado ou cancelada)",
+        400
+      )
+    }
+
+    // Validate new menu variation exists
+    const menu = await this.menuRepository.findWithComposition(
+      reservation.menuId
+    )
+    if (!menu) {
+      throw new AppError("Cardápio da reserva não encontrado", 404)
+    }
+
+    const newMenuVariation = menu.variations.find(
+      (v) => v.id === newMenuVariationId
+    )
+    if (!newMenuVariation) {
+      throw new AppError("Nova variação de cardápio não encontrada", 404)
+    }
+
+    // Update menu variation
+    const updatedReservation = await this.reservationRepository.update(id, {
+      menuVariationId: newMenuVariationId,
+    })
+
+    return updatedReservation
+  }
+
+  async getReservationsForDate(date: Date): Promise<Reservation[]> {
+    return await this.reservationRepository.findActiveReservationsForDate(date)
+  }
+
+  async getReservationsByDateRange(
+    startDate: Date,
+    endDate: Date
+  ): Promise<Reservation[]> {
+    return await this.reservationRepository.findByDateRange(startDate, endDate)
+  }
+
+  async getUserUpcomingReservations(userId: string): Promise<Reservation[]> {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const userReservations = await this.findActiveByUser(userId)
+
+    return userReservations
+      .filter((reservation) => {
+        const reservationDate = new Date(reservation.reservationDate)
+        reservationDate.setHours(0, 0, 0, 0)
+        return reservationDate >= today
+      })
+      .sort((a, b) => a.reservationDate.getTime() - b.reservationDate.getTime())
+  }
+
+  async getUserPastReservations(userId: string): Promise<Reservation[]> {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const userReservations = await this.findByUser(userId)
+
+    return userReservations
+      .filter((reservation) => {
+        const reservationDate = new Date(reservation.reservationDate)
+        reservationDate.setHours(0, 0, 0, 0)
+        return reservationDate < today
+      })
+      .sort((a, b) => b.reservationDate.getTime() - a.reservationDate.getTime())
+  }
+
+  async getReservationStatistics(
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    totalReservations: number
+    activeReservations: number
+    cancelledReservations: number
+    autoGeneratedReservations: number
+    manualReservations: number
+  }> {
+    const reservations = await this.reservationRepository.findByDateRange(
+      startDate,
+      endDate
+    )
+
+    return {
+      totalReservations: reservations.length,
+      activeReservations: reservations.filter((r) => r.isActive()).length,
+      cancelledReservations: reservations.filter((r) => r.isCancelled()).length,
+      autoGeneratedReservations: reservations.filter((r) => r.isAutoGenerated)
+        .length,
+      manualReservations: reservations.filter((r) => !r.isAutoGenerated).length,
+    }
+  }
+
+  private isWithinCutoffTime(
+    currentTime: Date,
+    reservationDate?: Date
+  ): boolean {
+    const targetDate = reservationDate || currentTime
+    const cutoffTime = new Date(targetDate)
+    cutoffTime.setHours(this.CUTOFF_HOUR, this.CUTOFF_MINUTE, 0, 0)
+
+    return currentTime < cutoffTime
+  }
+
+  async canUserMakeReservation(
+    userId: string,
+    menuId: string,
+    reservationDate: Date
+  ): Promise<{
+    canReserve: boolean
+    reason?: string
+  }> {
+    try {
+      // Validate user
+      const user = await this.userRepository.findById(userId)
+      if (!user) {
+        return { canReserve: false, reason: "Usuário não encontrado" }
+      }
+      if (!user.isActive()) {
+        return { canReserve: false, reason: "Usuário inativo" }
+      }
+
+      // Validate menu
+      const menu = await this.menuRepository.findById(menuId)
+      if (!menu) {
+        return { canReserve: false, reason: "Cardápio não encontrado" }
+      }
+      if (!menu.isActive) {
+        return { canReserve: false, reason: "Cardápio não disponível" }
+      }
+
+      // Check date
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const targetDate = new Date(reservationDate)
+      targetDate.setHours(0, 0, 0, 0)
+
+      if (targetDate < today) {
+        return { canReserve: false, reason: "Data já passou" }
+      }
+
+      // Check cutoff time for same-day reservations
+      if (targetDate.getTime() === today.getTime()) {
+        if (!this.isWithinCutoffTime(new Date())) {
+          return { canReserve: false, reason: "Prazo expirado (limite: 8:30)" }
+        }
+      }
+
+      // Check existing reservation
+      const existingReservation =
+        await this.reservationRepository.findByUserAndDate(
+          userId,
+          reservationDate
+        )
+      if (existingReservation && existingReservation.isActive()) {
+        return { canReserve: false, reason: "Já possui reserva para esta data" }
+      }
+
+      return { canReserve: true }
+    } catch {
+      return { canReserve: false, reason: "Erro interno do sistema" }
+    }
+  }
+}

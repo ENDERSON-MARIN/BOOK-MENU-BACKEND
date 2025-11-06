@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/app/*": ["./src/app/*"],
+      "@/infrastructure/*": ["./src/infrastructure/*"],
+      "@/config/*": ["./src/config/*"],
+      "@tests/*": ["./tests/*"],
+      "@tests/shared/*": ["./tests/shared/*"],
+      "@tests/modules/*": ["./tests/modules/*"],
+      "@tests/system/*": ["./tests/system/*"]
+    },
+    "types": ["vitest/globals", "node", "@types/supertest"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
