@@ -1,25 +1,25 @@
 services:
   postgres:
     image: postgres:17
-    container_name: device_db_local
+    container_name: bookmenu_db_local
     ports:
       - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: device_db
+      POSTGRES_DB: bookmenu_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   postgres_test:
     image: postgres:17
-    container_name: device_db_test
+    container_name: bookmenu_db_test
     ports:
       - "5434:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: device_db_test
+      POSTGRES_DB: bookmenu_db_test
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
 
