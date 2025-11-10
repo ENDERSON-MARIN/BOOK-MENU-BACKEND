@@ -84,7 +84,7 @@ export const makeLunchReservationModule: LunchReservationModuleFactory = (
 
     const userManagementService = new UserManagementService(
       userRepository,
-      authenticationService
+      authService
     )
     const categoryManagementService = new CategoryManagementService(
       categoryRepository

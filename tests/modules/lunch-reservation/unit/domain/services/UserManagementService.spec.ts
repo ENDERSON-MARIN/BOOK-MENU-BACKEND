@@ -23,24 +23,29 @@ const mockUserRepository: UserRepository = {
   findAll: vi.fn(),
 }
 
-// Mock do AuthenticationService
-interface MockAuthenticationService {
-  hashPassword: (password: string) => string
-  login: (credentials: {
-    cpf: string
-    password: string
-  }) => Promise<{ user: User; token: string }>
+// Mock do AuthService
+interface MockAuthService {
+  hashPassword: (password: string) => Promise<string>
+  comparePassword: (password: string, hash: string) => Promise<boolean>
+  generateToken: (user: User) => string
   validateToken: (
     token: string
-  ) => Promise<{ userId: string; cpf: string; role: string; userType: string }>
-  refreshToken: (token: string) => Promise<string>
+  ) => Promise<{ userId: string; cpf: string; role: string }>
+  login: (
+    cpf: string,
+    password: string
+  ) => Promise<{
+    token: string
+    user: { id: string; cpf: string; name: string; role: string }
+  }>
 }
 
-const mockAuthenticationService: MockAuthenticationService = {
+const mockAuthenticationService: MockAuthService = {
   hashPassword: vi.fn(),
-  login: vi.fn(),
+  comparePassword: vi.fn(),
+  generateToken: vi.fn(),
   validateToken: vi.fn(),
-  refreshToken: vi.fn(),
+  login: vi.fn(),
 }
 
 describe("UserManagementService", () => {
@@ -79,7 +84,7 @@ describe("UserManagementService", () => {
       )
 
       vi.mocked(mockUserRepository.findByCpf).mockResolvedValue(null)
-      vi.mocked(mockAuthenticationService.hashPassword).mockReturnValue(
+      vi.mocked(mockAuthenticationService.hashPassword).mockResolvedValue(
         hashedPassword
       )
       vi.mocked(mockUserRepository.create).mockResolvedValue(createdUser)
@@ -151,7 +156,7 @@ describe("UserManagementService", () => {
       )
 
       vi.mocked(mockUserRepository.findByCpf).mockResolvedValue(null)
-      vi.mocked(mockAuthenticationService.hashPassword).mockReturnValue(
+      vi.mocked(mockAuthenticationService.hashPassword).mockResolvedValue(
         hashedPassword
       )
       vi.mocked(mockUserRepository.create).mockResolvedValue(createdUser)
@@ -321,7 +326,7 @@ describe("UserManagementService", () => {
       )
 
       vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser)
-      vi.mocked(mockAuthenticationService.hashPassword).mockReturnValue(
+      vi.mocked(mockAuthenticationService.hashPassword).mockResolvedValue(
         hashedNewPassword
       )
       vi.mocked(mockUserRepository.update).mockResolvedValue(updatedUser)
