@@ -1,3 +1,5 @@
 export * from "./authMiddleware"
+export * from "./authenticate"
+export * from "./authorize"
 export * from "./roleMiddleware"
 export * from "./errorHandler"

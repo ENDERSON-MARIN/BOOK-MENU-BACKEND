@@ -26,10 +26,6 @@ lunchReservationRouter.post(
   authController.login.bind(authController)
 )
 lunchReservationRouter.post(
-  "/auth/refresh",
-  authController.refreshToken.bind(authController)
-)
-lunchReservationRouter.post(
   "/auth/logout",
   authController.logout.bind(authController)
 )

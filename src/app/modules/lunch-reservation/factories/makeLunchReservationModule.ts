@@ -11,6 +11,8 @@ import { PrismaReservationRepository } from "@/app/modules/lunch-reservation/inf
 // Import all services
 import { AuthenticationService } from "@/app/modules/lunch-reservation/domain/services/AuthenticationService"
 import { UserManagementService } from "@/app/modules/lunch-reservation/domain/services/UserManagementService"
+import { AuthService } from "@/app/modules/auth/AuthService"
+import { PrismaUserRepository as AuthUserRepository } from "@/infrastructure/database/repositories/PrismaUserRepository"
 import { CategoryManagementService } from "@/app/modules/lunch-reservation/domain/services/CategoryManagementService"
 import { MenuItemManagementService } from "@/app/modules/lunch-reservation/domain/services/MenuItemManagementService"
 import { WeekDayManagementService } from "@/app/modules/lunch-reservation/domain/services/WeekDayManagementService"
@@ -69,6 +71,17 @@ export const makeLunchReservationModule: LunchReservationModuleFactory = (
     // 2. Core Services (Application layer)
     // Inject repository dependencies into services
     const authenticationService = new AuthenticationService(userRepository)
+
+    // Create AuthService for the new auth module
+    const authUserRepository = new AuthUserRepository(databaseClient)
+    const jwtSecret = process.env.JWT_SECRET || ""
+    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || "24h"
+    const authService = new AuthService(
+      authUserRepository,
+      jwtSecret,
+      jwtExpiresIn
+    )
+
     const userManagementService = new UserManagementService(
       userRepository,
       authenticationService
@@ -102,7 +115,7 @@ export const makeLunchReservationModule: LunchReservationModuleFactory = (
 
     // 3. Primary Adapters (Interface layer)
     // Inject service dependencies into controllers
-    const authController = new AuthController(authenticationService)
+    const authController = new AuthController(authService)
     const userController = new UserController(userManagementService)
     const categoryController = new CategoryController(categoryManagementService)
     const menuItemController = new MenuItemController(menuItemManagementService)
