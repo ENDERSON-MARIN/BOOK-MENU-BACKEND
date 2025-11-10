@@ -9,7 +9,8 @@ describe("Device Integration Tests", () => {
   let userToken: string
 
   beforeEach(async () => {
-    // Clean up
+    // Clean up - delete in order to respect foreign key constraints
+    await prisma.reservation.deleteMany()
     await prisma.device.deleteMany()
     await prisma.user.deleteMany()
 
