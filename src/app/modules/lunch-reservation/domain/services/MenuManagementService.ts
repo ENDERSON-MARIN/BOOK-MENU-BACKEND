@@ -1,5 +1,6 @@
 import { Menu } from "../entities/Menu"
 import { DayOfWeek } from "../entities/WeekDay"
+import { VariationType } from "../entities/MenuVariation"
 import { MenuRepository, MenuWithDetails } from "../repositories/MenuRepository"
 import { MenuItemRepository } from "../repositories/MenuItemRepository"
 import { WeekDayManagementService } from "./WeekDayManagementService"
@@ -73,7 +74,15 @@ export class MenuManagementService {
     const createdMenu = await this.menuRepository.create(menuData)
 
     // Create automatic variations (standard and egg substitute)
-    await this.createAutomaticVariations(createdMenu.id, menuData.menuItems)
+    try {
+      await this.createAutomaticVariations(createdMenu.id, menuData.menuItems)
+    } catch (error) {
+      // If variation creation fails, log but don't fail the menu creation
+      console.error("Erro ao criar variações automáticas:", error)
+      // Optionally, you could delete the menu here if variations are critical
+      // await this.menuRepository.delete(createdMenu.id)
+      // throw error
+    }
 
     return createdMenu
   }
@@ -294,8 +303,15 @@ export class MenuManagementService {
       )
     }
 
+    // Create STANDARD variation with main protein
+    await this.menuRepository.createVariation({
+      menuId,
+      variationType: VariationType.STANDARD,
+      proteinItemId: mainProteinComposition.menuItemId,
+      isDefault: true,
+    })
+
     // Find egg substitute item (assuming there's a standard egg item)
-    // In a real implementation, this could be configurable
     const allMenuItems = await this.menuItemRepository.findActive()
     const eggItem = allMenuItems.find(
       (item) =>
@@ -303,18 +319,15 @@ export class MenuManagementService {
         item.name.toLowerCase().includes("egg")
     )
 
-    if (!eggItem) {
-      throw new AppError(
-        "Item de ovo não encontrado para criar variação alternativa",
-        400
-      )
+    if (eggItem) {
+      // Create EGG_SUBSTITUTE variation
+      await this.menuRepository.createVariation({
+        menuId,
+        variationType: VariationType.EGG_SUBSTITUTE,
+        proteinItemId: eggItem.id,
+        isDefault: false,
+      })
     }
-
-    // Note: In a real implementation, we would need to create these variations
-    // through the repository. For now, this is a placeholder for the logic.
-    // The actual creation would happen in the MenuRepository.create method
-    // Standard variation would use: VariationType.STANDARD, mainProteinComposition.menuItemId, isDefault: true
-    // Egg variation would use: VariationType.EGG_SUBSTITUTE, eggItem.id, isDefault: false
   }
 
   async duplicateMenu(sourceMenuId: string, targetDate: Date): Promise<Menu> {

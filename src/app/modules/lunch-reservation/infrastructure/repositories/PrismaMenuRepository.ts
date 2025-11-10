@@ -171,6 +171,21 @@ export class PrismaMenuRepository implements MenuRepository {
     })
   }
 
+  async createVariation(
+    variationData: import("../../domain/repositories/MenuRepository").CreateMenuVariationDTO
+  ): Promise<MenuVariation> {
+    const created = await this.prisma.menuVariation.create({
+      data: {
+        menuId: variationData.menuId,
+        variationType: variationData.variationType,
+        proteinItemId: variationData.proteinItemId,
+        isDefault: variationData.isDefault,
+      },
+    })
+
+    return this.menuVariationToDomain(created)
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toDomain(data: any): Menu {
     return new Menu(

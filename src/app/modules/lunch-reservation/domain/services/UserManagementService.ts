@@ -2,12 +2,12 @@ import { User, UserRole, UserType, UserStatus } from "../entities/User"
 import { UserRepository } from "../repositories/UserRepository"
 import { CreateUserDTO, UpdateUserDTO } from "../../dtos/UserDTOs"
 import { AppError } from "@/app/shared"
-import { AuthenticationService } from "./AuthenticationService"
+import { AuthService } from "@/app/modules/auth/AuthService"
 
 export class UserManagementService {
   constructor(
     private userRepository: UserRepository,
-    private authenticationService: AuthenticationService
+    private authService: AuthService
   ) {}
 
   async create(userData: CreateUserDTO): Promise<User> {
@@ -23,7 +23,7 @@ export class UserManagementService {
     }
 
     // Hash password
-    const hashedPassword = this.authenticationService.hashPassword(
+    const hashedPassword = await this.authService.hashPassword(
       userData.password
     )
 
@@ -68,7 +68,7 @@ export class UserManagementService {
     // If password is being updated, hash it
     const updateData = { ...userData }
     if (userData.password) {
-      updateData.password = this.authenticationService.hashPassword(
+      updateData.password = await this.authService.hashPassword(
         userData.password
       )
     }

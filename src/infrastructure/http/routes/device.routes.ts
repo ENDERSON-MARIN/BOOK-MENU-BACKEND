@@ -1,5 +1,7 @@
 import { Router, type Router as ExpressRouter } from "express"
 import { makeDeviceModule } from "@/app/modules/device"
+import { authenticate, authorize } from "@/infrastructure/http/middlewares"
+import { UserRole } from "@/app/modules/auth/domain/User"
 
 const deviceRouter: ExpressRouter = Router()
 
@@ -8,11 +10,21 @@ const { deviceController } = makeDeviceModule({
   websocketService: global.webSocketService,
 })
 
-// Device routes
-deviceRouter.post("/", deviceController.create.bind(deviceController))
-deviceRouter.get("/", deviceController.getAll.bind(deviceController))
+// Device routes - protected with authentication
+deviceRouter.post(
+  "/",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  deviceController.create.bind(deviceController)
+)
+deviceRouter.get(
+  "/",
+  authenticate,
+  deviceController.getAll.bind(deviceController)
+)
 deviceRouter.patch(
   "/:id/status",
+  authenticate,
   deviceController.toggleStatus.bind(deviceController)
 )
 

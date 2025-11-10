@@ -53,8 +53,13 @@ export const swaggerDocument = {
       name: "Reservations",
       description: "Gerenciamento de reservas de almoço",
     },
+    {
+      name: "Devices",
+      description: "Gerenciamento de dispositivos (ADMIN)",
+    },
   ],
   paths: {
+    //Authentication
     "/api/auth/login": {
       post: {
         tags: ["Auth"],
@@ -79,8 +84,8 @@ export const swaggerDocument = {
                 administrador: {
                   summary: "Administrador",
                   value: {
-                    cpf: "98765432100",
-                    password: "admin123",
+                    cpf: "00000000000",
+                    password: "password",
                   },
                 },
               },
@@ -237,7 +242,135 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/users": {
+    "/api/lunch-reservation/auth/refresh": {
+      post: {
+        tags: ["Auth"],
+        summary: "Renovar token de autenticação",
+        description:
+          "Renova o token JWT de autenticação do usuário. Permite manter a sessão ativa sem necessidade de novo login.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  refreshToken: {
+                    type: "string",
+                    description: "Token de renovação",
+                    example: "refresh_token_example",
+                  },
+                },
+                required: ["refreshToken"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Token renovado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    token: {
+                      type: "string",
+                      description: "Novo token JWT para autenticação",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token de renovação inválido ou expirado",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Invalid or expired refresh token",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/auth/logout": {
+      post: {
+        tags: ["Auth"],
+        summary: "Encerrar sessão",
+        description:
+          "Encerra a sessão do usuário autenticado, invalidando o token atual.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Logout realizado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: {
+                      type: "string",
+                      example: "Logout successful",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Authentication token is required",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    //Users
+    "/api/lunch-reservation/users": {
       post: {
         tags: ["Users"],
         summary: "Criar novo usuário",
@@ -524,7 +657,7 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/users/{id}": {
+    "/api/lunch-reservation/users/{id}": {
       get: {
         tags: ["Users"],
         summary: "Consultar usuário específico",
@@ -643,7 +776,7 @@ export const swaggerDocument = {
           },
         },
       },
-      patch: {
+      put: {
         tags: ["Users"],
         summary: "Atualizar usuário",
         description:
@@ -810,13 +943,11 @@ export const swaggerDocument = {
           },
         },
       },
-    },
-    "/api/users/{id}/status": {
-      patch: {
+      delete: {
         tags: ["Users"],
-        summary: "Alternar status do usuário",
+        summary: "Excluir usuário",
         description:
-          "Alterna o status do usuário entre ATIVO e INATIVO. Se o usuário estiver ATIVO, será alterado para INATIVO e vice-versa. Requer privilégios de administrador (ADMIN).",
+          "Exclui um usuário do sistema. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -827,8 +958,7 @@ export const swaggerDocument = {
             name: "id",
             in: "path",
             required: true,
-            description:
-              "ID único do usuário cujo status será alternado (UUID)",
+            description: "ID único do usuário a ser excluído (UUID)",
             schema: {
               type: "string",
               format: "uuid",
@@ -837,43 +967,8 @@ export const swaggerDocument = {
           },
         ],
         responses: {
-          "200": {
-            description: "Status do usuário alternado com sucesso",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/User",
-                },
-                examples: {
-                  ativadoParaInativo: {
-                    summary: "Usuário desativado (ATIVO → INATIVO)",
-                    value: {
-                      id: "550e8400-e29b-41d4-a716-446655440000",
-                      cpf: "12345678901",
-                      name: "João Silva",
-                      role: "USER",
-                      userType: "FIXO",
-                      status: "INATIVO",
-                      createdAt: "2025-10-21T10:30:00.000Z",
-                      updatedAt: "2025-11-07T17:00:00.000Z",
-                    },
-                  },
-                  inativoParaAtivo: {
-                    summary: "Usuário reativado (INATIVO → ATIVO)",
-                    value: {
-                      id: "880e8400-e29b-41d4-a716-446655440011",
-                      cpf: "44455566677",
-                      name: "Fernanda Costa",
-                      role: "USER",
-                      userType: "FIXO",
-                      status: "ATIVO",
-                      createdAt: "2025-09-10T14:20:00.000Z",
-                      updatedAt: "2025-11-07T17:05:00.000Z",
-                    },
-                  },
-                },
-              },
-            },
+          "204": {
+            description: "Usuário excluído com sucesso (sem conteúdo)",
           },
           "400": {
             description: "ID inválido",
@@ -950,7 +1045,8 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/categories": {
+    //Categories
+    "/api/lunch-reservation/categories": {
       post: {
         tags: ["Categories"],
         summary: "Criar nova categoria",
@@ -1240,7 +1336,7 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/categories/{id}": {
+    "/api/lunch-reservation/categories/{id}": {
       get: {
         tags: ["Categories"],
         summary: "Consultar categoria específica",
@@ -1358,7 +1454,7 @@ export const swaggerDocument = {
           },
         },
       },
-      patch: {
+      put: {
         tags: ["Categories"],
         summary: "Atualizar categoria",
         description:
@@ -1660,7 +1756,8 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/menu-items": {
+    //Menu Items
+    "/api/lunch-reservation/menu-items": {
       post: {
         tags: ["MenuItems"],
         summary: "Criar novo item de menu",
@@ -2052,7 +2149,7 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/menu-items/{id}": {
+    "/api/lunch-reservation/menu-items/{id}": {
       get: {
         tags: ["MenuItems"],
         summary: "Consultar item de menu específico",
@@ -2179,7 +2276,7 @@ export const swaggerDocument = {
           },
         },
       },
-      patch: {
+      put: {
         tags: ["MenuItems"],
         summary: "Atualizar item de menu",
         description:
@@ -2483,7 +2580,8 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/week-days": {
+    //Week Days
+    "/api/lunch-reservation/week-days": {
       get: {
         tags: ["WeekDays"],
         summary: "Listar dias da semana",
@@ -2593,7 +2691,56 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/menus": {
+    "/api/lunch-reservation/week-days/working": {
+      get: {
+        tags: ["WeekDays"],
+        summary: "Listar dias úteis da semana",
+        description:
+          "Retorna apenas os dias úteis da semana (Segunda a Sexta-feira). Acessível por usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de dias úteis retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/WeekDay",
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    //Menus
+    "/api/lunch-reservation/menus": {
       post: {
         tags: ["Menus"],
         summary: "Criar novo cardápio",
@@ -2615,38 +2762,38 @@ export const swaggerDocument = {
                 cardapioCompleto: {
                   summary: "Cardápio completo da semana",
                   value: {
-                    date: "2025-11-10",
+                    date: "2025-11-11T00:00:00.000Z",
                     observations: "Cardápio especial da semana",
                     menuItems: [
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440100",
+                        menuItemId: "e5784b88-0b64-48f5-bd9f-233a3ca63a05",
                         observations: "Peito de frango grelhado temperado",
                         isMainProtein: true,
                         isAlternativeProtein: false,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440101",
+                        menuItemId: "6ca8ca21-0c7e-40d8-b727-bdadc7a67c8a",
                         observations: "Ovo cozido como alternativa",
                         isMainProtein: false,
                         isAlternativeProtein: true,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440102",
+                        menuItemId: "eb7e42a4-17c4-4d8b-9a0a-19eb79135140",
                         isMainProtein: false,
                         isAlternativeProtein: false,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440103",
+                        menuItemId: "4aa70b4d-960b-4770-917f-cf0dc753dba8",
                         isMainProtein: false,
                         isAlternativeProtein: false,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440104",
+                        menuItemId: "bd0f30c2-dca0-4397-a6a3-9dc6516b0e0f",
                         isMainProtein: false,
                         isAlternativeProtein: false,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440105",
+                        menuItemId: "084c07fd-228e-4829-844a-ee9554aa4c99",
                         isMainProtein: false,
                         isAlternativeProtein: false,
                       },
@@ -2656,22 +2803,22 @@ export const swaggerDocument = {
                 cardapioSimples: {
                   summary: "Cardápio simples",
                   value: {
-                    date: "2025-11-11",
+                    date: "2025-11-11T00:00:00.000Z",
                     menuItems: [
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440110",
+                        menuItemId: "eb7e42a4-17c4-4d8b-9a0a-19eb79135140",
+                        isMainProtein: false,
+                        isAlternativeProtein: false,
+                      },
+                      {
+                        menuItemId: "3cf76776-25ed-46aa-9264-9479500cb012",
                         isMainProtein: true,
                         isAlternativeProtein: false,
                       },
                       {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440111",
+                        menuItemId: "6ca8ca21-0c7e-40d8-b727-bdadc7a67c8a",
                         isMainProtein: false,
                         isAlternativeProtein: true,
-                      },
-                      {
-                        menuItemId: "550e8400-e29b-41d4-a716-446655440112",
-                        isMainProtein: false,
-                        isAlternativeProtein: false,
                       },
                     ],
                   },
@@ -3324,7 +3471,7 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/menus/{id}": {
+    "/api/lunch-reservation/menus/{id}": {
       get: {
         tags: ["Menus"],
         summary: "Consultar cardápio específico",
@@ -3627,7 +3774,7 @@ export const swaggerDocument = {
           },
         },
       },
-      patch: {
+      put: {
         tags: ["Menus"],
         summary: "Atualizar cardápio",
         description:
@@ -3978,7 +4125,141 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/reservations": {
+    "/api/lunch-reservation/menus/date/{date}": {
+      get: {
+        tags: ["Menus"],
+        summary: "Consultar cardápio por data",
+        description:
+          "Retorna o cardápio de uma data específica. Acessível por usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "date",
+            in: "path",
+            required: true,
+            description: "Data do cardápio (formato: YYYY-MM-DD)",
+            schema: {
+              type: "string",
+              format: "date",
+            },
+            example: "2025-11-10",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Cardápio encontrado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Menu",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Cardápio não encontrado para esta data",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Menu not found for this date",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/lunch-reservation/menus/week/{weekNumber}": {
+      get: {
+        tags: ["Menus"],
+        summary: "Consultar cardápios por semana",
+        description:
+          "Retorna todos os cardápios de uma semana específica do ano. Acessível por usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "weekNumber",
+            in: "path",
+            required: true,
+            description: "Número da semana do ano (1-53)",
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 53,
+            },
+            example: 45,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Cardápios da semana retornados com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/Menu",
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    //Reservations
+    "/api/lunch-reservation/reservations": {
       post: {
         tags: ["Reservations"],
         summary: "Criar nova reserva",
@@ -4000,17 +4281,17 @@ export const swaggerDocument = {
                 reservaPadrao: {
                   summary: "Reserva com variação padrão",
                   value: {
-                    menuId: "550e8400-e29b-41d4-a716-446655440000",
-                    menuVariationId: "var-1",
-                    reservationDate: "2025-11-10",
+                    menuId: "50b514cb-3da3-408a-8aaf-606031f23214",
+                    menuVariationId: "50b514cb-3da3-408a-8aaf-606031f23214",
+                    reservationDate: "2025-11-12T00:00:00.000Z",
                   },
                 },
                 reservaOvo: {
                   summary: "Reserva com variação ovo",
                   value: {
-                    menuId: "550e8400-e29b-41d4-a716-446655440000",
-                    menuVariationId: "var-2",
-                    reservationDate: "2025-11-10",
+                    menuId: "d9041a20-d97d-49ec-b328-b056112be40f",
+                    menuVariationId: "c12c058b-aa73-43a5-867c-f3bf6152b070",
+                    reservationDate: "2025-11-14T00:00:00.000Z",
                   },
                 },
               },
@@ -4307,7 +4588,7 @@ export const swaggerDocument = {
         },
       },
     },
-    "/api/reservations/{id}": {
+    "/api/lunch-reservation/reservations/{id}": {
       get: {
         tags: ["Reservations"],
         summary: "Consultar reserva específica",
@@ -4512,7 +4793,7 @@ export const swaggerDocument = {
           },
         },
       },
-      patch: {
+      put: {
         tags: ["Reservations"],
         summary: "Alterar reserva",
         description:
@@ -4788,6 +5069,389 @@ export const swaggerDocument = {
                 },
                 example: {
                   error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/lunch-reservation/reservations/active": {
+      get: {
+        tags: ["Reservations"],
+        summary: "Listar reservas ativas do usuário",
+        description:
+          "Retorna apenas as reservas ativas (não canceladas) do usuário autenticado.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de reservas ativas retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/Reservation",
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/lunch-reservation/admin/reservations": {
+      get: {
+        tags: ["Reservations"],
+        summary: "Listar todas as reservas (ADMIN)",
+        description:
+          "Retorna todas as reservas do sistema. Permite filtrar por data. Requer privilégios de administrador (ADMIN).",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "startDate",
+            in: "query",
+            required: false,
+            description: "Data inicial do filtro (formato: YYYY-MM-DD)",
+            schema: {
+              type: "string",
+              format: "date",
+            },
+          },
+          {
+            name: "endDate",
+            in: "query",
+            required: false,
+            description: "Data final do filtro (formato: YYYY-MM-DD)",
+            schema: {
+              type: "string",
+              format: "date",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de todas as reservas retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/Reservation",
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário não tem permissão de administrador",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    //Devices
+    "/api/devices": {
+      post: {
+        tags: ["Devices"],
+        summary: "Criar novo dispositivo",
+        description:
+          "Registra um novo dispositivo no sistema. Requer privilégios de administrador (ADMIN).",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description: "Nome do dispositivo",
+                    example: "Tablet Recepção",
+                  },
+                  location: {
+                    type: "string",
+                    description: "Localização do dispositivo",
+                    example: "Recepção Principal",
+                  },
+                },
+                required: ["name"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Dispositivo criado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    id: {
+                      type: "string",
+                      format: "uuid",
+                    },
+                    name: {
+                      type: "string",
+                    },
+                    location: {
+                      type: "string",
+                    },
+                    status: {
+                      type: "string",
+                      enum: ["ACTIVE", "INACTIVE"],
+                    },
+                    createdAt: {
+                      type: "string",
+                      format: "date-time",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário não tem permissão de administrador",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+      get: {
+        tags: ["Devices"],
+        summary: "Listar todos os dispositivos",
+        description:
+          "Retorna uma lista com todos os dispositivos cadastrados no sistema. Acessível por usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de dispositivos retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: {
+                        type: "string",
+                        format: "uuid",
+                      },
+                      name: {
+                        type: "string",
+                      },
+                      location: {
+                        type: "string",
+                      },
+                      status: {
+                        type: "string",
+                        enum: ["ACTIVE", "INACTIVE"],
+                      },
+                      createdAt: {
+                        type: "string",
+                        format: "date-time",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/devices/{id}/status": {
+      patch: {
+        tags: ["Devices"],
+        summary: "Alternar status do dispositivo",
+        description:
+          "Alterna o status do dispositivo entre ACTIVE e INACTIVE. Acessível por usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "ID único do dispositivo (UUID)",
+            schema: {
+              type: "string",
+              format: "uuid",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Status do dispositivo alternado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    id: {
+                      type: "string",
+                      format: "uuid",
+                    },
+                    name: {
+                      type: "string",
+                    },
+                    location: {
+                      type: "string",
+                    },
+                    status: {
+                      type: "string",
+                      enum: ["ACTIVE", "INACTIVE"],
+                    },
+                    updatedAt: {
+                      type: "string",
+                      format: "date-time",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Dispositivo não encontrado",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Device not found",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
                 },
               },
             },

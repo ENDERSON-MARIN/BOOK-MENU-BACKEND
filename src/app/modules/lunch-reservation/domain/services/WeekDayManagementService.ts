@@ -66,14 +66,14 @@ export class WeekDayManagementService {
    */
   calculateWeekNumber(date: Date): number {
     const tempDate = new Date(date.getTime())
-    tempDate.setHours(0, 0, 0, 0)
+    tempDate.setUTCHours(0, 0, 0, 0)
 
     // Set to nearest Thursday: current date + 4 - current day number
     // Make Sunday's day number 7
-    tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7))
+    tempDate.setUTCDate(tempDate.getUTCDate() + 4 - (tempDate.getUTCDay() || 7))
 
     // Get first day of year
-    const yearStart = new Date(tempDate.getFullYear(), 0, 1)
+    const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1))
 
     // Calculate full weeks to nearest Thursday
     const weekNumber = Math.ceil(
@@ -108,9 +108,10 @@ export class WeekDayManagementService {
    */
   getWeekStartDate(date: Date): Date {
     const tempDate = new Date(date)
-    const day = tempDate.getDay()
-    const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
-    return new Date(tempDate.setDate(diff))
+    const day = tempDate.getUTCDay()
+    const diff = tempDate.getUTCDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+    tempDate.setUTCDate(diff)
+    return tempDate
   }
 
   /**
@@ -128,21 +129,21 @@ export class WeekDayManagementService {
    */
   getWeekDates(weekNumber: number, year: number): Date[] {
     // Get January 4th of the year (always in week 1)
-    const jan4 = new Date(year, 0, 4)
+    const jan4 = new Date(Date.UTC(year, 0, 4))
 
     // Calculate the Monday of week 1
     const week1Monday = new Date(jan4)
-    week1Monday.setDate(jan4.getDate() - jan4.getDay() + 1)
+    week1Monday.setUTCDate(jan4.getUTCDate() - jan4.getUTCDay() + 1)
 
     // Calculate the Monday of the target week
     const targetWeekMonday = new Date(week1Monday)
-    targetWeekMonday.setDate(week1Monday.getDate() + (weekNumber - 1) * 7)
+    targetWeekMonday.setUTCDate(week1Monday.getUTCDate() + (weekNumber - 1) * 7)
 
     // Generate all 7 days of the week
     const weekDates: Date[] = []
     for (let i = 0; i < 7; i++) {
       const date = new Date(targetWeekMonday)
-      date.setDate(targetWeekMonday.getDate() + i)
+      date.setUTCDate(targetWeekMonday.getUTCDate() + i)
       weekDates.push(date)
     }
 
@@ -196,7 +197,7 @@ export class WeekDayManagementService {
    * Check if a date is a business day (Monday to Friday)
    */
   isBusinessDay(date: Date): boolean {
-    const dayOfWeek = this.convertJsDayToDayOfWeek(date.getDay())
+    const dayOfWeek = this.convertJsDayToDayOfWeek(date.getUTCDay())
     return dayOfWeek !== DayOfWeek.SATURDAY && dayOfWeek !== DayOfWeek.SUNDAY
   }
 
@@ -204,7 +205,7 @@ export class WeekDayManagementService {
    * Check if a date is a weekend day (Saturday or Sunday)
    */
   isWeekendDay(date: Date): boolean {
-    const dayOfWeek = this.convertJsDayToDayOfWeek(date.getDay())
+    const dayOfWeek = this.convertJsDayToDayOfWeek(date.getUTCDay())
     return dayOfWeek === DayOfWeek.SATURDAY || dayOfWeek === DayOfWeek.SUNDAY
   }
 
@@ -213,10 +214,10 @@ export class WeekDayManagementService {
    */
   getNextBusinessDay(date: Date): Date {
     const nextDay = new Date(date)
-    nextDay.setDate(date.getDate() + 1)
+    nextDay.setUTCDate(date.getUTCDate() + 1)
 
     while (!this.isBusinessDay(nextDay)) {
-      nextDay.setDate(nextDay.getDate() + 1)
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1)
     }
 
     return nextDay
@@ -227,10 +228,10 @@ export class WeekDayManagementService {
    */
   getPreviousBusinessDay(date: Date): Date {
     const previousDay = new Date(date)
-    previousDay.setDate(date.getDate() - 1)
+    previousDay.setUTCDate(date.getUTCDate() - 1)
 
     while (!this.isBusinessDay(previousDay)) {
-      previousDay.setDate(previousDay.getDate() - 1)
+      previousDay.setUTCDate(previousDay.getUTCDate() - 1)
     }
 
     return previousDay
@@ -247,7 +248,7 @@ export class WeekDayManagementService {
       if (this.isBusinessDay(currentDate)) {
         businessDays.push(new Date(currentDate))
       }
-      currentDate.setDate(currentDate.getDate() + 1)
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1)
     }
 
     return businessDays

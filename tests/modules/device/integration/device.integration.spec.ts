@@ -2,10 +2,32 @@ import { describe, it, expect, beforeEach } from "vitest"
 import request from "supertest"
 import { app } from "../../../shared/helpers/app"
 import { prisma } from "../../../../src/infrastructure/database/prisma"
+import { createTestUserAndGetToken } from "../../../shared/helpers/auth"
 
 describe("Device Integration Tests", () => {
+  let adminToken: string
+  let userToken: string
+
   beforeEach(async () => {
+    // Clean up - delete in order to respect foreign key constraints
+    await prisma.reservation.deleteMany()
     await prisma.device.deleteMany()
+    await prisma.user.deleteMany()
+
+    // Create test users and get tokens
+    adminToken = await createTestUserAndGetToken({
+      cpf: "11144477735",
+      password: "admin123",
+      name: "Admin User",
+      role: "ADMIN",
+    })
+
+    userToken = await createTestUserAndGetToken({
+      cpf: "22255588846",
+      password: "user123",
+      name: "Regular User",
+      role: "USER",
+    })
   })
 
   describe("POST /api/devices", () => {
@@ -17,6 +39,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(201)
 
@@ -34,6 +57,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(400)
 
@@ -48,6 +72,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(400)
 
@@ -63,6 +88,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(400)
 
@@ -77,6 +103,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(400)
 
@@ -90,7 +117,11 @@ describe("Device Integration Tests", () => {
       }
 
       // Create first device
-      await request(app).post("/api/devices").send(deviceData).expect(201)
+      await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(deviceData)
+        .expect(201)
 
       // Try to create second device with same MAC
       const duplicateDevice = {
@@ -100,6 +131,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(duplicateDevice)
         .expect(409)
 
@@ -114,6 +146,7 @@ describe("Device Integration Tests", () => {
 
       const response = await request(app)
         .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
         .send(deviceData)
         .expect(201)
 
@@ -124,17 +157,26 @@ describe("Device Integration Tests", () => {
   describe("GET /api/devices", () => {
     it("should return all devices", async () => {
       // Create test devices
-      await request(app).post("/api/devices").send({
-        name: "Device 1",
-        mac: "AA:BB:CC:DD:EE:01",
-      })
+      await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Device 1",
+          mac: "AA:BB:CC:DD:EE:01",
+        })
 
-      await request(app).post("/api/devices").send({
-        name: "Device 2",
-        mac: "AA:BB:CC:DD:EE:02",
-      })
+      await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Device 2",
+          mac: "AA:BB:CC:DD:EE:02",
+        })
 
-      const response = await request(app).get("/api/devices").expect(200)
+      const response = await request(app)
+        .get("/api/devices")
+        .set("Authorization", `Bearer ${userToken}`)
+        .expect(200)
 
       expect(response.body).toHaveLength(2)
       expect(response.body[0]).toHaveProperty("id")
@@ -145,38 +187,56 @@ describe("Device Integration Tests", () => {
     })
 
     it("should return empty array when no devices exist", async () => {
-      const response = await request(app).get("/api/devices").expect(200)
+      const response = await request(app)
+        .get("/api/devices")
+        .set("Authorization", `Bearer ${userToken}`)
+        .expect(200)
 
       expect(response.body).toEqual([])
     })
 
     it("should return devices ordered by creation date (newest first)", async () => {
-      const device1 = await request(app).post("/api/devices").send({
-        name: "Device 1",
-        mac: "AA:BB:CC:DD:EE:01",
-      })
+      const device1 = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Device 1",
+          mac: "AA:BB:CC:DD:EE:01",
+        })
 
       // Small delay to ensure different timestamps
       await new Promise((resolve) => setTimeout(resolve, 10))
 
-      const device2 = await request(app).post("/api/devices").send({
-        name: "Device 2",
-        mac: "AA:BB:CC:DD:EE:02",
-      })
+      const device2 = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Device 2",
+          mac: "AA:BB:CC:DD:EE:02",
+        })
 
-      const response = await request(app).get("/api/devices").expect(200)
+      const response = await request(app)
+        .get("/api/devices")
+        .set("Authorization", `Bearer ${userToken}`)
+        .expect(200)
 
       expect(response.body[0].id).toBe(device2.body.id)
       expect(response.body[1].id).toBe(device1.body.id)
     })
 
     it("should include all required fields in response", async () => {
-      await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
-      const response = await request(app).get("/api/devices").expect(200)
+      const response = await request(app)
+        .get("/api/devices")
+        .set("Authorization", `Bearer ${userToken}`)
+        .expect(200)
 
       expect(response.body[0]).toHaveProperty("id")
       expect(response.body[0]).toHaveProperty("name")
@@ -188,15 +248,19 @@ describe("Device Integration Tests", () => {
 
   describe("PATCH /api/devices/:id/status", () => {
     it("should toggle device status from ATIVO to INATIVO", async () => {
-      const created = await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      const created = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
       expect(created.body.status).toBe("ATIVO")
 
       const response = await request(app)
         .patch(`/api/devices/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(200)
 
       expect(response.body.status).toBe("INATIVO")
@@ -205,19 +269,24 @@ describe("Device Integration Tests", () => {
     })
 
     it("should toggle device status from INATIVO to ATIVO", async () => {
-      const created = await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      const created = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
       // First toggle to INATIVO
       await request(app)
         .patch(`/api/devices/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(200)
 
       // Then toggle back to ATIVO
       const response = await request(app)
         .patch(`/api/devices/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(200)
 
       expect(response.body.status).toBe("ATIVO")
@@ -226,6 +295,7 @@ describe("Device Integration Tests", () => {
     it("should return 404 for non-existent device", async () => {
       const response = await request(app)
         .patch("/api/devices/550e8400-e29b-41d4-a716-446655440000/status")
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(404)
 
       expect(response.body.error).toBe("Device not found")
@@ -234,19 +304,24 @@ describe("Device Integration Tests", () => {
     it("should return 400 for invalid UUID format", async () => {
       const response = await request(app)
         .patch("/api/devices/invalid-uuid/status")
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(400)
 
       expect(response.body.error).toBe("Validation error")
     })
 
     it("should return updated device data in response", async () => {
-      const created = await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      const created = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
       const response = await request(app)
         .patch(`/api/devices/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(200)
 
       expect(response.body).toHaveProperty("id")
@@ -262,6 +337,7 @@ describe("Device Integration Tests", () => {
       const requests = Array.from({ length: 3 }, (_, i) =>
         request(app)
           .post("/api/devices")
+          .set("Authorization", `Bearer ${adminToken}`)
           .send({
             name: `Device ${i}`,
             mac: `AA:BB:CC:DD:EE:0${i}`,
@@ -274,18 +350,25 @@ describe("Device Integration Tests", () => {
         expect(response.status).toBe(201)
       })
 
-      const allDevices = await request(app).get("/api/devices")
+      const allDevices = await request(app)
+        .get("/api/devices")
+        .set("Authorization", `Bearer ${userToken}`)
       expect(allDevices.body).toHaveLength(3)
     })
 
     it("should handle concurrent status toggle requests", async () => {
-      const created = await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      const created = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
       const requests = Array.from({ length: 3 }, () =>
-        request(app).patch(`/api/devices/${created.body.id}/status`)
+        request(app)
+          .patch(`/api/devices/${created.body.id}/status`)
+          .set("Authorization", `Bearer ${userToken}`)
       )
 
       const responses = await Promise.all(requests)
@@ -296,13 +379,17 @@ describe("Device Integration Tests", () => {
     })
 
     it("should preserve device data during status toggle", async () => {
-      const created = await request(app).post("/api/devices").send({
-        name: "Test Device",
-        mac: "AA:BB:CC:DD:EE:FF",
-      })
+      const created = await request(app)
+        .post("/api/devices")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Test Device",
+          mac: "AA:BB:CC:DD:EE:FF",
+        })
 
       const response = await request(app)
         .patch(`/api/devices/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${userToken}`)
         .expect(200)
 
       expect(response.body.name).toBe(created.body.name)

@@ -1,4 +1,5 @@
 import { Router, type Router as ExpressRouter } from "express"
+import { authRouter } from "./auth.routes"
 import { deviceRouter } from "./device.routes"
 import { lunchReservationRouter } from "./lunchReservation.routes"
 
@@ -8,6 +9,9 @@ import { lunchReservationRouter } from "./lunchReservation.routes"
  */
 export function applicationRouter(): ExpressRouter {
   const router: ExpressRouter = Router()
+
+  // Authentication routes
+  router.use("/auth", authRouter)
 
   // Device routes
   router.use("/devices", deviceRouter)
