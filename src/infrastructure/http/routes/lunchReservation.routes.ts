@@ -29,6 +29,10 @@ lunchReservationRouter.post(
   "/auth/logout",
   authController.logout.bind(authController)
 )
+lunchReservationRouter.post(
+  "/auth/refresh",
+  authController.refresh.bind(authController)
+)
 
 // User management routes (ADMIN only)
 lunchReservationRouter.post(

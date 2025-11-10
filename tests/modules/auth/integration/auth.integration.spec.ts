@@ -1,11 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import request from "supertest"
 import { app } from "../../../shared/helpers/app"
-import { prisma } from "@/infrastructure/database/prisma"
-import bcrypt from "bcryptjs"
+import { prisma } from "../../../../src/infrastructure/database/prisma"
+import { makeAuthModule } from "../../../../src/app/modules/auth"
 import { UserRole, UserStatus, UserType } from "@prisma/client"
 
 describe("Authentication Integration Tests", () => {
+  // Use the auth module's AuthService for password hashing (same as the controller uses)
+  const { authService } = makeAuthModule()
+
   // Test user data
   const testUsers = {
     activeUser: {
@@ -39,10 +43,11 @@ describe("Authentication Integration Tests", () => {
     await prisma.user.deleteMany()
 
     // Create test users with hashed passwords
-    const hashedPassword = await bcrypt.hash(testUsers.activeUser.password, 10)
-    const hashedAdminPassword = await bcrypt.hash(
-      testUsers.adminUser.password,
-      10
+    const hashedPassword = await authService.hashPassword(
+      testUsers.activeUser.password
+    )
+    const hashedAdminPassword = await authService.hashPassword(
+      testUsers.adminUser.password
     )
 
     await prisma.user.create({
@@ -162,7 +167,7 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
         expect(Array.isArray(response.body.details)).toBe(true)
         expect(response.body.details.length).toBeGreaterThan(0)
@@ -177,7 +182,7 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
         expect(Array.isArray(response.body.details)).toBe(true)
         expect(response.body.details.length).toBeGreaterThan(0)
@@ -190,7 +195,7 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
         expect(Array.isArray(response.body.details)).toBe(true)
         expect(response.body.details.length).toBeGreaterThan(0)
@@ -208,7 +213,7 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
         expect(Array.isArray(response.body.details)).toBe(true)
 
@@ -229,11 +234,11 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
 
         const cpfError = response.body.details.find(
-          (detail: unknown) => detail.path && detail.path.includes("cpf")
+          (detail: any) => detail.path && detail.path.includes("cpf")
         )
         expect(cpfError).toBeDefined()
       })
@@ -248,11 +253,11 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
 
         const cpfError = response.body.details.find(
-          (detail: unknown) => detail.path && detail.path.includes("cpf")
+          (detail: any) => detail.path && detail.path.includes("cpf")
         )
         expect(cpfError).toBeDefined()
       })
@@ -269,13 +274,13 @@ describe("Authentication Integration Tests", () => {
           .expect(400)
 
         expect(response.body).toHaveProperty("error")
-        expect(response.body.error).toBe("Validation error")
+        expect(response.body.error).toBe("Erro de validação")
         expect(response.body).toHaveProperty("details")
         expect(Array.isArray(response.body.details)).toBe(true)
 
         // Check that password validation error is present
         const passwordError = response.body.details.find(
-          (detail: unknown) => detail.path && detail.path.includes("password")
+          (detail: any) => detail.path && detail.path.includes("password")
         )
         expect(passwordError).toBeDefined()
       })

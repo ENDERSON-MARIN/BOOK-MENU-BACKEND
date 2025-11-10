@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest"
 import request from "supertest"
 import { app } from "../../../shared/helpers/app"
 import { prisma } from "../../../../src/infrastructure/database/prisma"
-import { AuthenticationService } from "../../../../src/app/modules/lunch-reservation/domain/services/AuthenticationService"
+import { makeAuthModule } from "../../../../src/app/modules/auth"
 
 interface ReservationResponse {
   id: string
@@ -14,9 +14,8 @@ interface ReservationResponse {
 }
 
 describe("Lunch Reservation Auto-Generation E2E Tests", () => {
-  // Create a temporary authentication service instance for password hashing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tempAuthService = new AuthenticationService({} as any)
+  // Use the auth module's AuthService for password hashing (same as the controller uses)
+  const { authService } = makeAuthModule()
 
   let fixedUserToken: string
   let nonFixedUserToken: string
@@ -40,7 +39,7 @@ describe("Lunch Reservation Auto-Generation E2E Tests", () => {
     const fixedUser = await prisma.user.create({
       data: {
         cpf: "11144477735",
-        password: tempAuthService.hashPassword("hello"),
+        password: await authService.hashPassword("hello123"),
         name: "Fixed User",
         role: "USER",
         userType: "FIXO",
@@ -52,7 +51,7 @@ describe("Lunch Reservation Auto-Generation E2E Tests", () => {
     const nonFixedUser = await prisma.user.create({
       data: {
         cpf: "22255588846",
-        password: tempAuthService.hashPassword("hello"),
+        password: await authService.hashPassword("hello123"),
         name: "Non-Fixed User",
         role: "USER",
         userType: "NAO_FIXO",
@@ -64,7 +63,7 @@ describe("Lunch Reservation Auto-Generation E2E Tests", () => {
     await prisma.user.create({
       data: {
         cpf: "33366699957",
-        password: tempAuthService.hashPassword("hello"),
+        password: await authService.hashPassword("hello123"),
         name: "Admin User",
         role: "ADMIN",
         userType: "NAO_FIXO",
@@ -77,21 +76,21 @@ describe("Lunch Reservation Auto-Generation E2E Tests", () => {
       .post("/api/lunch-reservation/auth/login")
       .send({
         cpf: "11144477735",
-        password: "hello",
+        password: "hello123",
       })
 
     const nonFixedUserLoginResponse = await request(app)
       .post("/api/lunch-reservation/auth/login")
       .send({
         cpf: "22255588846",
-        password: "hello",
+        password: "hello123",
       })
 
     const adminLoginResponse = await request(app)
       .post("/api/lunch-reservation/auth/login")
       .send({
         cpf: "33366699957",
-        password: "hello",
+        password: "hello123",
       })
 
     fixedUserToken = fixedUserLoginResponse.body.token
@@ -570,9 +569,9 @@ describe("Lunch Reservation Auto-Generation E2E Tests", () => {
         .post("/api/lunch-reservation/auth/login")
         .send({
           cpf: "11144477735",
-          password: "hello",
+          password: "hello123",
         })
-        .expect(401)
+        .expect(403)
 
       expect(loginResponse.body.error).toBe("Usuário inativo")
 

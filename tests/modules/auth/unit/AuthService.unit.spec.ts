@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import { AuthService } from "@/app/modules/auth/AuthService"
-import { UserRepository } from "@/app/modules/auth/domain/UserRepository"
+import { AuthService } from "../../../../src/app/modules/auth/AuthService"
+import { UserRepository } from "../../../../src/app/modules/auth/domain/UserRepository"
 import {
   User,
   UserRole,
   UserStatus,
   UserType,
-} from "@/app/modules/auth/domain/User"
+} from "../../../../src/app/modules/auth/domain/User"
 import jwt from "jsonwebtoken"
 
 describe("AuthService Unit Tests", () => {

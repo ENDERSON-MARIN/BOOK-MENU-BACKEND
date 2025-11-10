@@ -16,7 +16,7 @@ export class AuthController {
     } catch (error) {
       if (error instanceof ZodError) {
         return res.status(400).json({
-          error: "Validation error",
+          error: "Erro de validação",
           details: error.issues,
         })
       }
@@ -33,5 +33,52 @@ export class AuthController {
     return res.status(200).json({
       message: "Logout realizado com sucesso",
     })
+  }
+
+  async refresh(req: Request, res: Response): Promise<Response> {
+    try {
+      const { refreshToken } = req.body
+
+      if (!refreshToken) {
+        return res.status(400).json({
+          error: "Token de atualização não fornecido",
+        })
+      }
+
+      // Validate the refresh token (in this simple implementation, we just validate and generate a new token)
+      const decoded = await this.authService.validateToken(refreshToken)
+
+      // Generate a new token with the same user data
+      const user = await this.authService["userRepository"].findByCpf(
+        decoded.cpf
+      )
+
+      if (!user) {
+        return res.status(401).json({
+          error: "Token inválido",
+        })
+      }
+
+      const newToken = this.authService.generateToken(user)
+
+      return res.status(200).json({
+        token: newToken,
+        user: {
+          id: user.id,
+          cpf: user.cpf,
+          name: user.name,
+          role: user.role,
+        },
+      })
+    } catch (error) {
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        })
+      }
+      return res.status(401).json({
+        error: "Token inválido",
+      })
+    }
   }
 }

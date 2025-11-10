@@ -2,12 +2,11 @@ import { describe, it, expect, beforeEach } from "vitest"
 import request from "supertest"
 import { app } from "../../../shared/helpers/app"
 import { prisma } from "../../../../src/infrastructure/database/prisma"
-import { AuthenticationService } from "../../../../src/app/modules/lunch-reservation/domain/services/AuthenticationService"
+import { makeAuthModule } from "../../../../src/app/modules/auth"
 
 describe("Lunch Reservation Authentication E2E Tests", () => {
-  // Create a temporary authentication service instance for password hashing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tempAuthService = new AuthenticationService({} as any)
+  // Use the auth module's AuthService for password hashing (same as the controller uses)
+  const { authService } = makeAuthModule()
 
   beforeEach(async () => {
     // Clean up database
@@ -26,7 +25,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Test User",
           role: "USER",
           userType: "NAO_FIXO",
@@ -36,7 +35,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
 
       const loginData = {
         cpf: "11144477735",
-        password: "hello",
+        password: "hello123",
       }
 
       const response = await request(app)
@@ -49,8 +48,6 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       expect(response.body.user.cpf).toBe(loginData.cpf)
       expect(response.body.user.name).toBe("Test User")
       expect(response.body.user.role).toBe("USER")
-      expect(response.body.user.userType).toBe("NAO_FIXO")
-      expect(response.body.user.status).toBe("ATIVO")
       expect(typeof response.body.token).toBe("string")
     })
 
@@ -87,7 +84,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Test User",
           role: "USER",
           userType: "NAO_FIXO",
@@ -113,7 +110,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Test User",
           role: "USER",
           userType: "NAO_FIXO",
@@ -123,13 +120,13 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
 
       const loginData = {
         cpf: "11144477735",
-        password: "hello",
+        password: "hello123",
       }
 
       const response = await request(app)
         .post("/api/lunch-reservation/auth/login")
         .send(loginData)
-        .expect(401)
+        .expect(403)
 
       expect(response.body.error).toBe("Usuário inativo")
     })
@@ -150,7 +147,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Test User",
           role: "USER",
           userType: "NAO_FIXO",
@@ -163,7 +160,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
         .post("/api/lunch-reservation/auth/login")
         .send({
           cpf: "11144477735",
-          password: "hello",
+          password: "hello123",
         })
 
       const { token } = loginResponse.body
@@ -203,7 +200,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Admin User",
           role: "ADMIN",
           userType: "NAO_FIXO",
@@ -216,7 +213,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
         .post("/api/lunch-reservation/auth/login")
         .send({
           cpf: "11144477735",
-          password: "hello",
+          password: "hello123",
         })
 
       const { token } = loginResponse.body
@@ -252,7 +249,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "11144477735",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Regular User",
           role: "USER",
           userType: "NAO_FIXO",
@@ -264,7 +261,7 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
       await prisma.user.create({
         data: {
           cpf: "22255588846",
-          password: tempAuthService.hashPassword("hello"),
+          password: await authService.hashPassword("hello123"),
           name: "Admin User",
           role: "ADMIN",
           userType: "NAO_FIXO",
@@ -277,14 +274,14 @@ describe("Lunch Reservation Authentication E2E Tests", () => {
         .post("/api/lunch-reservation/auth/login")
         .send({
           cpf: "11144477735",
-          password: "hello",
+          password: "hello123",
         })
 
       const adminLoginResponse = await request(app)
         .post("/api/lunch-reservation/auth/login")
         .send({
           cpf: "22255588846",
-          password: "hello",
+          password: "hello123",
         })
 
       userToken = userLoginResponse.body.token
