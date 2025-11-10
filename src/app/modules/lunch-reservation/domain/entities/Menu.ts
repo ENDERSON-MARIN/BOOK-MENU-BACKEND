@@ -1,8 +1,8 @@
-import { DayOfWeek } from './WeekDay';
+import { DayOfWeek } from "./WeekDay"
 
 export interface MenuUpdateData {
-  observations?: string;
-  isActive?: boolean;
+  observations?: string
+  isActive?: boolean
 }
 
 export class Menu {
@@ -18,22 +18,22 @@ export class Menu {
   ) {}
 
   public toggleActive(): void {
-    this.isActive = !this.isActive;
+    this.isActive = !this.isActive
   }
 
   public update(data: MenuUpdateData): void {
-    if (data.observations !== undefined) this.observations = data.observations;
-    if (data.isActive !== undefined) this.isActive = data.isActive;
+    if (data.observations !== undefined) this.observations = data.observations
+    if (data.isActive !== undefined) this.isActive = data.isActive
   }
 
   public static calculateWeekNumber(date: Date): number {
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000;
-    return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
+    const startOfYear = new Date(date.getFullYear(), 0, 1)
+    const pastDaysOfYear = (date.getTime() - startOfYear.getTime()) / 86400000
+    return Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7)
   }
 
   public static getDayOfWeek(date: Date): DayOfWeek {
-    const dayIndex = date.getDay();
+    const dayIndex = date.getUTCDay()
     const days = [
       DayOfWeek.SUNDAY,
       DayOfWeek.MONDAY,
@@ -41,8 +41,8 @@ export class Menu {
       DayOfWeek.WEDNESDAY,
       DayOfWeek.THURSDAY,
       DayOfWeek.FRIDAY,
-      DayOfWeek.SATURDAY
-    ];
-    return days[dayIndex];
+      DayOfWeek.SATURDAY,
+    ]
+    return days[dayIndex]
   }
 }
