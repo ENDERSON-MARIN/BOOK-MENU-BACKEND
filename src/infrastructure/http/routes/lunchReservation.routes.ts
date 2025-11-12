@@ -118,6 +118,12 @@ lunchReservationRouter.get(
   menuItemController.getAll.bind(menuItemController)
 )
 lunchReservationRouter.get(
+  "/menu-items/active",
+  authMiddleware,
+  requireUser(),
+  menuItemController.getActive.bind(menuItemController)
+)
+lunchReservationRouter.get(
   "/menu-items/:id",
   authMiddleware,
   requireAdmin(),

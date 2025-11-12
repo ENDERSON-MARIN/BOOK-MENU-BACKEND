@@ -2757,6 +2757,169 @@ export const swaggerDocument = {
         },
       },
     },
+    "/api/lunch-reservation/menu-items/active": {
+      get: {
+        tags: ["MenuItems"],
+        summary: "Listar itens de menu ativos",
+        description:
+          "Retorna uma lista com todos os itens de menu ativos no sistema. Permite filtrar por categoria através do parâmetro categoryId. Disponível para todos os usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "categoryId",
+            in: "query",
+            required: false,
+            description:
+              "ID da categoria para filtrar os itens de menu ativos (UUID). Se não informado, retorna todos os itens ativos.",
+            schema: {
+              type: "string",
+              format: "uuid",
+            },
+            example: "550e8400-e29b-41d4-a716-446655440020",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de itens de menu ativos retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/MenuItem",
+                  },
+                },
+                examples: {
+                  todosItensAtivos: {
+                    summary: "Todos os itens de menu ativos",
+                    value: [
+                      {
+                        id: "880e8400-e29b-41d4-a716-446655440030",
+                        name: "Frango Grelhado",
+                        description:
+                          "Peito de frango grelhado temperado com ervas",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-07T18:00:00.000Z",
+                        updatedAt: "2025-11-07T18:00:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                      {
+                        id: "990e8400-e29b-41d4-a716-446655440031",
+                        name: "Peixe Assado",
+                        description: "Filé de peixe assado com limão",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-05T14:30:00.000Z",
+                        updatedAt: "2025-11-05T14:30:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                    ],
+                  },
+                  itensAtivosFiltrados: {
+                    summary: "Itens ativos filtrados por categoria (Proteína)",
+                    value: [
+                      {
+                        id: "880e8400-e29b-41d4-a716-446655440030",
+                        name: "Frango Grelhado",
+                        description:
+                          "Peito de frango grelhado temperado com ervas",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-07T18:00:00.000Z",
+                        updatedAt: "2025-11-07T18:00:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Parâmetros de consulta inválidos",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ValidationError",
+                },
+                example: {
+                  error: "Validation error",
+                  details: [
+                    {
+                      code: "invalid_string",
+                      message: "Invalid UUID format",
+                      path: ["categoryId"],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Authentication token is required",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Categoria não encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Category not found",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     //Week Days
     "/api/lunch-reservation/week-days": {
       get: {
