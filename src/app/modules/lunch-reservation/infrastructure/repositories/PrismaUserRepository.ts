@@ -1,6 +1,11 @@
 // Note: If you see a TypeScript error here, run 'pnpm prisma generate' to generate the Prisma client
 import { PrismaClient } from "@prisma/client"
-import { User, UserRole, UserType, UserStatus } from "../../domain/entities/User"
+import {
+  User,
+  UserRole,
+  UserType,
+  UserStatus,
+} from "../../domain/entities/User"
 import { UserRepository } from "../../domain/repositories/UserRepository"
 import { CreateUserDTO, UpdateUserDTO } from "../../dtos/UserDTOs"
 
@@ -53,8 +58,11 @@ export class PrismaUserRepository implements UserRepository {
     return this.toDomain(updated)
   }
 
-  async findAll(): Promise<User[]> {
+  async findAll(includeInactive: boolean = false): Promise<User[]> {
+    const whereClause = includeInactive ? {} : { status: UserStatus.ATIVO }
+
     const users = await this.prisma.user.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     })
 

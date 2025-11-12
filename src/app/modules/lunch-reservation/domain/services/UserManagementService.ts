@@ -39,8 +39,8 @@ export class UserManagementService {
     return createdUser
   }
 
-  async findAll(): Promise<User[]> {
-    return await this.userRepository.findAll()
+  async findAll(includeInactive: boolean = false): Promise<User[]> {
+    return await this.userRepository.findAll(includeInactive)
   }
 
   async findById(id: string): Promise<User> {
@@ -83,7 +83,15 @@ export class UserManagementService {
       throw new AppError("Usuário não encontrado", 404)
     }
 
-    await this.userRepository.delete(id)
+    // Verifica se o usuário já está inativo
+    if (existingUser.status === UserStatus.INATIVO) {
+      throw new AppError("Usuário já está inativo", 400)
+    }
+
+    // Realiza soft delete alterando o status para INATIVO
+    await this.userRepository.update(id, {
+      status: UserStatus.INATIVO,
+    })
   }
 
   async toggleStatus(id: string): Promise<User> {

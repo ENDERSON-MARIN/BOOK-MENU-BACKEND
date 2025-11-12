@@ -1,8 +1,10 @@
+import { Category } from "./Category"
+
 export interface MenuItemUpdateData {
-  name?: string;
-  description?: string;
-  categoryId?: string;
-  isActive?: boolean;
+  name?: string
+  description?: string
+  categoryId?: string
+  isActive?: boolean
 }
 
 export class MenuItem {
@@ -12,18 +14,19 @@ export class MenuItem {
     public description: string,
     public categoryId: string,
     public isActive: boolean,
+    public category?: Category,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date
   ) {}
 
   public toggleActive(): void {
-    this.isActive = !this.isActive;
+    this.isActive = !this.isActive
   }
 
   public update(data: MenuItemUpdateData): void {
-    if (data.name !== undefined) this.name = data.name;
-    if (data.description !== undefined) this.description = data.description;
-    if (data.categoryId !== undefined) this.categoryId = data.categoryId;
-    if (data.isActive !== undefined) this.isActive = data.isActive;
+    if (data.name !== undefined) this.name = data.name
+    if (data.description !== undefined) this.description = data.description
+    if (data.categoryId !== undefined) this.categoryId = data.categoryId
+    if (data.isActive !== undefined) this.isActive = data.isActive
   }
 }

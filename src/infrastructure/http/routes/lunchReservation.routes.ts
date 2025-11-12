@@ -97,6 +97,12 @@ lunchReservationRouter.delete(
   requireAdmin(),
   categoryController.delete.bind(categoryController)
 )
+lunchReservationRouter.patch(
+  "/categories/:id/toggle-active",
+  authMiddleware,
+  requireAdmin(),
+  categoryController.toggleActive.bind(categoryController)
+)
 
 // Menu item management routes (ADMIN only)
 lunchReservationRouter.post(
@@ -110,6 +116,12 @@ lunchReservationRouter.get(
   authMiddleware,
   requireAdmin(),
   menuItemController.getAll.bind(menuItemController)
+)
+lunchReservationRouter.get(
+  "/menu-items/active",
+  authMiddleware,
+  requireUser(),
+  menuItemController.getActive.bind(menuItemController)
 )
 lunchReservationRouter.get(
   "/menu-items/:id",

@@ -209,19 +209,21 @@ export const swaggerDocument = {
                 schema: {
                   $ref: "#/components/schemas/AuthenticationError",
                 },
-                examples: {
-                  credenciaisInvalidas: {
-                    summary: "CPF ou senha incorretos",
-                    value: {
-                      error: "Invalid credentials",
-                    },
-                  },
-                  usuarioInativo: {
-                    summary: "Usuário inativo",
-                    value: {
-                      error: "User account is inactive",
-                    },
-                  },
+                example: {
+                  error: "Invalid credentials",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário inativo - conta desativada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+                example: {
+                  error: "Usuário inativo",
                 },
               },
             },
@@ -548,10 +550,24 @@ export const swaggerDocument = {
         tags: ["Users"],
         summary: "Listar todos os usuários",
         description:
-          "Retorna uma lista com todos os usuários cadastrados no sistema. Requer privilégios de administrador (ADMIN).",
+          "Retorna uma lista com todos os usuários cadastrados no sistema. Por padrão, retorna apenas usuários ativos. Use o parâmetro includeInactive=true para incluir usuários inativos. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "includeInactive",
+            in: "query",
+            required: false,
+            description:
+              "Incluir usuários inativos na listagem. Por padrão, retorna apenas usuários ativos.",
+            schema: {
+              type: "boolean",
+              default: false,
+            },
+            example: true,
           },
         ],
         responses: {
@@ -780,7 +796,7 @@ export const swaggerDocument = {
         tags: ["Users"],
         summary: "Atualizar usuário",
         description:
-          "Atualiza os dados de um usuário existente. Permite alterar nome, papel (role), tipo de usuário (userType) e status. Requer privilégios de administrador (ADMIN).",
+          "Atualiza os dados de um usuário existente. Permite alterar nome, papel (role), tipo de usuário (userType) e status. Para reativar um usuário inativo, altere o status de INATIVO para ATIVO. O histórico de reservas é preservado durante a reativação. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -823,6 +839,12 @@ export const swaggerDocument = {
                   summary: "Promover usuário a administrador",
                   value: {
                     role: "ADMIN",
+                  },
+                },
+                reativarUsuario: {
+                  summary: "Reativar usuário inativo",
+                  value: {
+                    status: "ATIVO",
                   },
                 },
                 atualizacaoCompleta: {
@@ -945,9 +967,9 @@ export const swaggerDocument = {
       },
       delete: {
         tags: ["Users"],
-        summary: "Excluir usuário",
+        summary: "Desativar usuário (Soft Delete)",
         description:
-          "Exclui um usuário do sistema. Requer privilégios de administrador (ADMIN).",
+          "Desativa um usuário do sistema alterando seu status para INATIVO. Esta é uma operação de soft delete que preserva o registro do usuário e seu histórico de reservas. Usuários inativos não podem fazer login. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -958,7 +980,7 @@ export const swaggerDocument = {
             name: "id",
             in: "path",
             required: true,
-            description: "ID único do usuário a ser excluído (UUID)",
+            description: "ID único do usuário a ser desativado (UUID)",
             schema: {
               type: "string",
               format: "uuid",
@@ -968,24 +990,43 @@ export const swaggerDocument = {
         ],
         responses: {
           "204": {
-            description: "Usuário excluído com sucesso (sem conteúdo)",
+            description:
+              "Usuário desativado com sucesso. O status foi alterado para INATIVO e o histórico de reservas foi preservado.",
           },
           "400": {
-            description: "ID inválido",
+            description: "ID inválido ou usuário já está inativo",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/ValidationError",
-                },
-                example: {
-                  error: "Validation error",
-                  details: [
+                  oneOf: [
                     {
-                      code: "invalid_string",
-                      message: "Invalid UUID format",
-                      path: ["id"],
+                      $ref: "#/components/schemas/ValidationError",
+                    },
+                    {
+                      $ref: "#/components/schemas/Error",
                     },
                   ],
+                },
+                examples: {
+                  idInvalido: {
+                    summary: "ID inválido",
+                    value: {
+                      error: "Validation error",
+                      details: [
+                        {
+                          code: "invalid_string",
+                          message: "Invalid UUID format",
+                          path: ["id"],
+                        },
+                      ],
+                    },
+                  },
+                  usuarioJaInativo: {
+                    summary: "Usuário já está inativo",
+                    value: {
+                      error: "Usuário já está inativo",
+                    },
+                  },
                 },
               },
             },
@@ -1024,7 +1065,7 @@ export const swaggerDocument = {
                   $ref: "#/components/schemas/Error",
                 },
                 example: {
-                  error: "User not found",
+                  error: "Usuário não encontrado",
                 },
               },
             },
@@ -1697,6 +1738,142 @@ export const swaggerDocument = {
                         "Cannot delete category with associated menu items",
                     },
                   },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Authentication token is required",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário não tem permissão de administrador",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+                example: {
+                  error: "Access denied. Admin privileges required",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Categoria não encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Category not found",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/lunch-reservation/categories/{id}/toggle-active": {
+      patch: {
+        tags: ["Categories"],
+        summary: "Alternar status da categoria (ativa/inativa)",
+        description:
+          "Alterna o status de ativação de uma categoria entre ativa e inativa. Categorias inativas não aparecem para os usuários ao fazer reservas. Requer privilégios de administrador (ADMIN).",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "ID único da categoria (UUID)",
+            schema: {
+              type: "string",
+              format: "uuid",
+            },
+            example: "550e8400-e29b-41d4-a716-446655440020",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Status da categoria alterado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Category",
+                },
+                examples: {
+                  categoriaDesativada: {
+                    summary: "Categoria desativada",
+                    value: {
+                      id: "550e8400-e29b-41d4-a716-446655440020",
+                      name: "Proteína",
+                      description: "Alimentos ricos em proteínas",
+                      displayOrder: 1,
+                      isActive: false,
+                      createdAt: "2025-11-07T18:00:00.000Z",
+                      updatedAt: "2025-11-12T10:30:00.000Z",
+                    },
+                  },
+                  categoriaAtivada: {
+                    summary: "Categoria ativada",
+                    value: {
+                      id: "550e8400-e29b-41d4-a716-446655440024",
+                      name: "Bebida",
+                      description: "Sucos e bebidas",
+                      displayOrder: 5,
+                      isActive: true,
+                      createdAt: "2025-10-15T10:00:00.000Z",
+                      updatedAt: "2025-11-12T10:35:00.000Z",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "ID inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ValidationError",
+                },
+                example: {
+                  error: "Validation error",
+                  details: [
+                    {
+                      code: "invalid_string",
+                      message: "Invalid UUID format",
+                      path: ["id"],
+                    },
+                  ],
                 },
               },
             },
@@ -2560,6 +2737,169 @@ export const swaggerDocument = {
                 },
                 example: {
                   error: "Menu item not found",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/lunch-reservation/menu-items/active": {
+      get: {
+        tags: ["MenuItems"],
+        summary: "Listar itens de menu ativos",
+        description:
+          "Retorna uma lista com todos os itens de menu ativos no sistema. Permite filtrar por categoria através do parâmetro categoryId. Disponível para todos os usuários autenticados.",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "categoryId",
+            in: "query",
+            required: false,
+            description:
+              "ID da categoria para filtrar os itens de menu ativos (UUID). Se não informado, retorna todos os itens ativos.",
+            schema: {
+              type: "string",
+              format: "uuid",
+            },
+            example: "550e8400-e29b-41d4-a716-446655440020",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de itens de menu ativos retornada com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/MenuItem",
+                  },
+                },
+                examples: {
+                  todosItensAtivos: {
+                    summary: "Todos os itens de menu ativos",
+                    value: [
+                      {
+                        id: "880e8400-e29b-41d4-a716-446655440030",
+                        name: "Frango Grelhado",
+                        description:
+                          "Peito de frango grelhado temperado com ervas",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-07T18:00:00.000Z",
+                        updatedAt: "2025-11-07T18:00:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                      {
+                        id: "990e8400-e29b-41d4-a716-446655440031",
+                        name: "Peixe Assado",
+                        description: "Filé de peixe assado com limão",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-05T14:30:00.000Z",
+                        updatedAt: "2025-11-05T14:30:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                    ],
+                  },
+                  itensAtivosFiltrados: {
+                    summary: "Itens ativos filtrados por categoria (Proteína)",
+                    value: [
+                      {
+                        id: "880e8400-e29b-41d4-a716-446655440030",
+                        name: "Frango Grelhado",
+                        description:
+                          "Peito de frango grelhado temperado com ervas",
+                        categoryId: "550e8400-e29b-41d4-a716-446655440020",
+                        isActive: true,
+                        createdAt: "2025-11-07T18:00:00.000Z",
+                        updatedAt: "2025-11-07T18:00:00.000Z",
+                        category: {
+                          id: "550e8400-e29b-41d4-a716-446655440020",
+                          name: "Proteína",
+                          description: "Carnes e proteínas",
+                          displayOrder: 1,
+                          isActive: true,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Parâmetros de consulta inválidos",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ValidationError",
+                },
+                example: {
+                  error: "Validation error",
+                  details: [
+                    {
+                      code: "invalid_string",
+                      message: "Invalid UUID format",
+                      path: ["categoryId"],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Authentication token is required",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Categoria não encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Category not found",
                 },
               },
             },
