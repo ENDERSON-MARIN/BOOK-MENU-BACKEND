@@ -209,19 +209,21 @@ export const swaggerDocument = {
                 schema: {
                   $ref: "#/components/schemas/AuthenticationError",
                 },
-                examples: {
-                  credenciaisInvalidas: {
-                    summary: "CPF ou senha incorretos",
-                    value: {
-                      error: "Invalid credentials",
-                    },
-                  },
-                  usuarioInativo: {
-                    summary: "Usuário inativo",
-                    value: {
-                      error: "User account is inactive",
-                    },
-                  },
+                example: {
+                  error: "Invalid credentials",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário inativo - conta desativada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+                example: {
+                  error: "Usuário inativo",
                 },
               },
             },
@@ -548,10 +550,24 @@ export const swaggerDocument = {
         tags: ["Users"],
         summary: "Listar todos os usuários",
         description:
-          "Retorna uma lista com todos os usuários cadastrados no sistema. Requer privilégios de administrador (ADMIN).",
+          "Retorna uma lista com todos os usuários cadastrados no sistema. Por padrão, retorna apenas usuários ativos. Use o parâmetro includeInactive=true para incluir usuários inativos. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "includeInactive",
+            in: "query",
+            required: false,
+            description:
+              "Incluir usuários inativos na listagem. Por padrão, retorna apenas usuários ativos.",
+            schema: {
+              type: "boolean",
+              default: false,
+            },
+            example: true,
           },
         ],
         responses: {
@@ -780,7 +796,7 @@ export const swaggerDocument = {
         tags: ["Users"],
         summary: "Atualizar usuário",
         description:
-          "Atualiza os dados de um usuário existente. Permite alterar nome, papel (role), tipo de usuário (userType) e status. Requer privilégios de administrador (ADMIN).",
+          "Atualiza os dados de um usuário existente. Permite alterar nome, papel (role), tipo de usuário (userType) e status. Para reativar um usuário inativo, altere o status de INATIVO para ATIVO. O histórico de reservas é preservado durante a reativação. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -823,6 +839,12 @@ export const swaggerDocument = {
                   summary: "Promover usuário a administrador",
                   value: {
                     role: "ADMIN",
+                  },
+                },
+                reativarUsuario: {
+                  summary: "Reativar usuário inativo",
+                  value: {
+                    status: "ATIVO",
                   },
                 },
                 atualizacaoCompleta: {
@@ -945,9 +967,9 @@ export const swaggerDocument = {
       },
       delete: {
         tags: ["Users"],
-        summary: "Excluir usuário",
+        summary: "Desativar usuário (Soft Delete)",
         description:
-          "Exclui um usuário do sistema. Requer privilégios de administrador (ADMIN).",
+          "Desativa um usuário do sistema alterando seu status para INATIVO. Esta é uma operação de soft delete que preserva o registro do usuário e seu histórico de reservas. Usuários inativos não podem fazer login. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -958,7 +980,7 @@ export const swaggerDocument = {
             name: "id",
             in: "path",
             required: true,
-            description: "ID único do usuário a ser excluído (UUID)",
+            description: "ID único do usuário a ser desativado (UUID)",
             schema: {
               type: "string",
               format: "uuid",
@@ -968,24 +990,43 @@ export const swaggerDocument = {
         ],
         responses: {
           "204": {
-            description: "Usuário excluído com sucesso (sem conteúdo)",
+            description:
+              "Usuário desativado com sucesso. O status foi alterado para INATIVO e o histórico de reservas foi preservado.",
           },
           "400": {
-            description: "ID inválido",
+            description: "ID inválido ou usuário já está inativo",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/ValidationError",
-                },
-                example: {
-                  error: "Validation error",
-                  details: [
+                  oneOf: [
                     {
-                      code: "invalid_string",
-                      message: "Invalid UUID format",
-                      path: ["id"],
+                      $ref: "#/components/schemas/ValidationError",
+                    },
+                    {
+                      $ref: "#/components/schemas/Error",
                     },
                   ],
+                },
+                examples: {
+                  idInvalido: {
+                    summary: "ID inválido",
+                    value: {
+                      error: "Validation error",
+                      details: [
+                        {
+                          code: "invalid_string",
+                          message: "Invalid UUID format",
+                          path: ["id"],
+                        },
+                      ],
+                    },
+                  },
+                  usuarioJaInativo: {
+                    summary: "Usuário já está inativo",
+                    value: {
+                      error: "Usuário já está inativo",
+                    },
+                  },
                 },
               },
             },
@@ -1024,7 +1065,7 @@ export const swaggerDocument = {
                   $ref: "#/components/schemas/Error",
                 },
                 example: {
-                  error: "User not found",
+                  error: "Usuário não encontrado",
                 },
               },
             },

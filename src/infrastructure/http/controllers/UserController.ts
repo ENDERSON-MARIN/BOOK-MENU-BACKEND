@@ -38,7 +38,8 @@ export class UserController {
 
   async getAll(req: Request, res: Response): Promise<Response> {
     try {
-      const users = await this.userManagementService.findAll()
+      const includeInactive = req.query.includeInactive === "true"
+      const users = await this.userManagementService.findAll(includeInactive)
 
       // Remove passwords from response
       const usersResponse = users.map(({ password, ...user }) => user)

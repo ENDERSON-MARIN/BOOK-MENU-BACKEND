@@ -174,8 +174,45 @@ describe("UserManagementService", () => {
   })
 
   describe("findAll", () => {
-    it("should return all users", async () => {
-      const users = [
+    it("should return only active users by default", async () => {
+      const activeUsers = [
+        new User(
+          "1",
+          "11144477735",
+          "hash1",
+          "User 1",
+          UserRole.USER,
+          UserType.FIXO,
+          UserStatus.ATIVO,
+          new Date(),
+          new Date()
+        ),
+        new User(
+          "3",
+          "33366699957",
+          "hash3",
+          "User 3",
+          UserRole.USER,
+          UserType.NAO_FIXO,
+          UserStatus.ATIVO,
+          new Date(),
+          new Date()
+        ),
+      ]
+
+      vi.mocked(mockUserRepository.findAll).mockResolvedValue(activeUsers)
+
+      const result = await service.findAll()
+
+      expect(mockUserRepository.findAll).toHaveBeenCalledWith(false)
+      expect(result).toHaveLength(2)
+      expect(result.every((user) => user.status === UserStatus.ATIVO)).toBe(
+        true
+      )
+    })
+
+    it("should return all users including inactive when includeInactive is true", async () => {
+      const allUsers = [
         new User(
           "1",
           "11144477735",
@@ -198,15 +235,26 @@ describe("UserManagementService", () => {
           new Date(),
           new Date()
         ),
+        new User(
+          "3",
+          "33366699957",
+          "hash3",
+          "User 3",
+          UserRole.USER,
+          UserType.NAO_FIXO,
+          UserStatus.ATIVO,
+          new Date(),
+          new Date()
+        ),
       ]
 
-      vi.mocked(mockUserRepository.findAll).mockResolvedValue(users)
+      vi.mocked(mockUserRepository.findAll).mockResolvedValue(allUsers)
 
-      const result = await service.findAll()
+      const result = await service.findAll(true)
 
-      expect(mockUserRepository.findAll).toHaveBeenCalled()
-      expect(result).toEqual(users)
-      expect(result).toHaveLength(2)
+      expect(mockUserRepository.findAll).toHaveBeenCalledWith(true)
+      expect(result).toEqual(allUsers)
+      expect(result).toHaveLength(3)
     })
 
     it("should return empty array when no users exist", async () => {
@@ -700,6 +748,76 @@ describe("UserManagementService", () => {
       expect(result).toHaveLength(1)
       expect(result[0].role).toBe(UserRole.ADMIN)
       expect(result[0].status).toBe(UserStatus.ATIVO)
+    })
+  })
+
+  describe("delete", () => {
+    it("should perform soft delete by changing status to INATIVO for active user", async () => {
+      const activeUser = new User(
+        "123",
+        "11144477735",
+        "hashedPassword",
+        "João Silva",
+        UserRole.USER,
+        UserType.FIXO,
+        UserStatus.ATIVO,
+        new Date(),
+        new Date()
+      )
+
+      const inactiveUser = new User(
+        "123",
+        "11144477735",
+        "hashedPassword",
+        "João Silva",
+        UserRole.USER,
+        UserType.FIXO,
+        UserStatus.INATIVO,
+        new Date(),
+        new Date()
+      )
+
+      vi.mocked(mockUserRepository.findById).mockResolvedValue(activeUser)
+      vi.mocked(mockUserRepository.update).mockResolvedValue(inactiveUser)
+
+      await service.delete("123")
+
+      expect(mockUserRepository.findById).toHaveBeenCalledWith("123")
+      expect(mockUserRepository.update).toHaveBeenCalledWith("123", {
+        status: UserStatus.INATIVO,
+      })
+    })
+
+    it("should throw error 404 when user does not exist", async () => {
+      vi.mocked(mockUserRepository.findById).mockResolvedValue(null)
+
+      await expect(service.delete("999")).rejects.toThrow(AppError)
+      await expect(service.delete("999")).rejects.toThrow(
+        "Usuário não encontrado"
+      )
+      expect(mockUserRepository.update).not.toHaveBeenCalled()
+    })
+
+    it("should throw error 400 when user is already inactive", async () => {
+      const inactiveUser = new User(
+        "123",
+        "11144477735",
+        "hashedPassword",
+        "João Silva",
+        UserRole.USER,
+        UserType.FIXO,
+        UserStatus.INATIVO,
+        new Date(),
+        new Date()
+      )
+
+      vi.mocked(mockUserRepository.findById).mockResolvedValue(inactiveUser)
+
+      await expect(service.delete("123")).rejects.toThrow(AppError)
+      await expect(service.delete("123")).rejects.toThrow(
+        "Usuário já está inativo"
+      )
+      expect(mockUserRepository.update).not.toHaveBeenCalled()
     })
   })
 })
