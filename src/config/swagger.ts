@@ -1797,6 +1797,142 @@ export const swaggerDocument = {
         },
       },
     },
+    "/api/lunch-reservation/categories/{id}/toggle-active": {
+      patch: {
+        tags: ["Categories"],
+        summary: "Alternar status da categoria (ativa/inativa)",
+        description:
+          "Alterna o status de ativação de uma categoria entre ativa e inativa. Categorias inativas não aparecem para os usuários ao fazer reservas. Requer privilégios de administrador (ADMIN).",
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "ID único da categoria (UUID)",
+            schema: {
+              type: "string",
+              format: "uuid",
+            },
+            example: "550e8400-e29b-41d4-a716-446655440020",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Status da categoria alterado com sucesso",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Category",
+                },
+                examples: {
+                  categoriaDesativada: {
+                    summary: "Categoria desativada",
+                    value: {
+                      id: "550e8400-e29b-41d4-a716-446655440020",
+                      name: "Proteína",
+                      description: "Alimentos ricos em proteínas",
+                      displayOrder: 1,
+                      isActive: false,
+                      createdAt: "2025-11-07T18:00:00.000Z",
+                      updatedAt: "2025-11-12T10:30:00.000Z",
+                    },
+                  },
+                  categoriaAtivada: {
+                    summary: "Categoria ativada",
+                    value: {
+                      id: "550e8400-e29b-41d4-a716-446655440024",
+                      name: "Bebida",
+                      description: "Sucos e bebidas",
+                      displayOrder: 5,
+                      isActive: true,
+                      createdAt: "2025-10-15T10:00:00.000Z",
+                      updatedAt: "2025-11-12T10:35:00.000Z",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "ID inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ValidationError",
+                },
+                example: {
+                  error: "Validation error",
+                  details: [
+                    {
+                      code: "invalid_string",
+                      message: "Invalid UUID format",
+                      path: ["id"],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Token ausente ou inválido",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthenticationError",
+                },
+                example: {
+                  error: "Authentication token is required",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Usuário não tem permissão de administrador",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/AuthorizationError",
+                },
+                example: {
+                  error: "Access denied. Admin privileges required",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Categoria não encontrada",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Category not found",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Erro interno do servidor",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/Error",
+                },
+                example: {
+                  error: "Internal server error",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     //Menu Items
     "/api/lunch-reservation/menu-items": {
       post: {

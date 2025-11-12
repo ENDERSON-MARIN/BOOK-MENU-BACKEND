@@ -115,4 +115,26 @@ export class CategoryController {
       throw error
     }
   }
+
+  async toggleActive(req: Request, res: Response): Promise<Response> {
+    try {
+      const { id } = uuidParamSchema.parse(req.params)
+      const category = await this.categoryManagementService.toggleActive(id)
+
+      return res.status(200).json(category)
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          error: "Erro de validação",
+          details: error.issues,
+        })
+      }
+      if (error instanceof AppError) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        })
+      }
+      throw error
+    }
+  }
 }
