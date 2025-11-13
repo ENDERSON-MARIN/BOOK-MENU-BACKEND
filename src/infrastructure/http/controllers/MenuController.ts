@@ -43,9 +43,28 @@ export class MenuController {
   async getByDate(req: Request, res: Response): Promise<Response> {
     try {
       const { date } = dateParamSchema.parse(req.params)
-      const menu = await this.menuManagementService.findWithCompositionByDate(
-        new Date(date)
+
+      console.log("📥 Received date parameter:", date)
+
+      // Normalize date to avoid timezone issues
+      // Parse YYYY-MM-DD and create date at midnight UTC
+      const [year, month, day] = date.split("-").map(Number)
+      const normalizedDate = new Date(
+        Date.UTC(year, month - 1, day, 0, 0, 0, 0)
       )
+
+      console.log("🔧 Normalized date:", normalizedDate.toISOString())
+
+      const menu =
+        await this.menuManagementService.findWithCompositionByDate(
+          normalizedDate
+        )
+
+      if (!menu) {
+        return res.status(404).json({
+          error: "Cardápio não encontrado para esta data",
+        })
+      }
 
       return res.status(200).json(menu)
     } catch (error) {

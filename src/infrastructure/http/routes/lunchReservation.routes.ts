@@ -114,7 +114,7 @@ lunchReservationRouter.post(
 lunchReservationRouter.get(
   "/menu-items",
   authMiddleware,
-  requireAdmin(),
+  requireUser(),
   menuItemController.getAll.bind(menuItemController)
 )
 lunchReservationRouter.get(
