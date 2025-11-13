@@ -205,6 +205,46 @@ export class PrismaMenuRepository implements MenuRepository {
   }
 
   async update(id: string, menuData: UpdateMenuDTO): Promise<Menu> {
+    // If menuItems are provided, we need to update the compositions
+    if (menuData.menuItems && menuData.menuItems.length > 0) {
+      // Use a transaction to ensure atomicity
+      const updated = await this.prisma.$transaction(async (tx) => {
+        // Delete existing compositions
+        await tx.menuComposition.deleteMany({
+          where: { menuId: id },
+        })
+
+        // Create new compositions
+        await tx.menuComposition.createMany({
+          data: menuData.menuItems!.map(
+            (item: import("../../dtos/MenuDTOs").CreateMenuCompositionDTO) => ({
+              menuId: id,
+              menuItemId: item.menuItemId,
+              observations: item.observations || "",
+              isMainProtein: item.isMainProtein || false,
+              isAlternativeProtein: item.isAlternativeProtein || false,
+            })
+          ),
+        })
+
+        // Update menu fields
+        return await tx.menu.update({
+          where: { id },
+          data: {
+            ...(menuData.observations !== undefined && {
+              observations: menuData.observations,
+            }),
+            ...(menuData.isActive !== undefined && {
+              isActive: menuData.isActive,
+            }),
+          },
+        })
+      })
+
+      return this.toDomain(updated)
+    }
+
+    // If no menuItems, just update the menu fields
     const updated = await this.prisma.menu.update({
       where: { id },
       data: {
