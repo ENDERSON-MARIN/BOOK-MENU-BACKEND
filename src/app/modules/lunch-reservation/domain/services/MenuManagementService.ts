@@ -29,14 +29,6 @@ export class MenuManagementService {
       throw new AppError("Não é possível criar cardápio para data passada", 400)
     }
 
-    // Validate date is a business day
-    if (!this.weekDayManagementService.isBusinessDay(menuData.date)) {
-      throw new AppError(
-        "Cardápio só pode ser criado para dias úteis (Segunda a Sexta)",
-        400
-      )
-    }
-
     // Check if menu already exists for this date
     const existingMenu = await this.menuRepository.findByDate(menuData.date)
     if (existingMenu) {
@@ -349,10 +341,6 @@ export class MenuManagementService {
         "Não é possível duplicar cardápio para data passada",
         400
       )
-    }
-
-    if (!this.weekDayManagementService.isBusinessDay(targetDate)) {
-      throw new AppError("Cardápio só pode ser duplicado para dias úteis", 400)
     }
 
     // Check if menu already exists for target date
