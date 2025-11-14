@@ -173,7 +173,7 @@ export class MenuController {
   async getById(req: Request, res: Response): Promise<Response> {
     try {
       const { id } = uuidParamSchema.parse(req.params)
-      const menu = await this.menuManagementService.findById(id)
+      const menu = await this.menuManagementService.findWithComposition(id)
 
       return res.status(200).json(menu)
     } catch (error) {

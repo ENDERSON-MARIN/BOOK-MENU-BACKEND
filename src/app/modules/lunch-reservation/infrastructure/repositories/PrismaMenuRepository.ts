@@ -80,8 +80,20 @@ export class PrismaMenuRepository implements MenuRepository {
     const menu = await this.prisma.menu.findUnique({
       where: { id: menuId },
       include: {
-        menuCompositions: true,
-        variations: true,
+        menuCompositions: {
+          include: {
+            menuItem: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        variations: {
+          include: {
+            proteinItem: true,
+          },
+        },
       },
     })
 
@@ -129,8 +141,20 @@ export class PrismaMenuRepository implements MenuRepository {
     let menu = await this.prisma.menu.findUnique({
       where: { date: normalizedDate },
       include: {
-        menuCompositions: true,
-        variations: true,
+        menuCompositions: {
+          include: {
+            menuItem: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        variations: {
+          include: {
+            proteinItem: true,
+          },
+        },
       },
     })
 
@@ -154,8 +178,20 @@ export class PrismaMenuRepository implements MenuRepository {
           },
         },
         include: {
-          menuCompositions: true,
-          variations: true,
+          menuCompositions: {
+            include: {
+              menuItem: {
+                include: {
+                  category: true,
+                },
+              },
+            },
+          },
+          variations: {
+            include: {
+              proteinItem: true,
+            },
+          },
         },
       })
 
