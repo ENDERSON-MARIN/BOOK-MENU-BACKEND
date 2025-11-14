@@ -9,8 +9,103 @@ import {
   dateRangeQuerySchema,
 } from "../validators"
 
+// Prisma error type for better error handling
+interface PrismaError extends Error {
+  code?: string
+  meta?: {
+    target?: string[]
+    cause?: string
+  }
+}
+
 export class ReservationController {
   constructor(private reservationService: ReservationService) {}
+
+  /**
+   * Trata erros do Prisma e retorna resposta HTTP apropriada
+   */
+  private handlePrismaError(error: PrismaError, res: Response): Response {
+    const code = error.code
+
+    switch (code) {
+      case "P2002":
+        // Unique constraint violation
+        return res.status(409).json({
+          error: "Já existe um registro com esses dados",
+          details: error.meta?.target,
+        })
+
+      case "P2003":
+        // Foreign key constraint violation
+        return res.status(400).json({
+          error:
+            "Referência inválida. Verifique se os dados relacionados existem",
+          details: error.meta?.target,
+        })
+
+      case "P2025":
+        // Record not found
+        return res.status(404).json({
+          error: "Registro não encontrado",
+        })
+
+      default:
+        // Log do erro completo para erros desconhecidos do Prisma
+        console.error("[ReservationController] Erro do Prisma não tratado:")
+        console.error("[ReservationController] Código:", code)
+        console.error("[ReservationController] Mensagem:", error.message)
+        console.error("[ReservationController] Meta:", error.meta)
+        console.error("[ReservationController] Stack:", error.stack)
+
+        return res.status(500).json({
+          error: "Erro interno do servidor",
+        })
+    }
+  }
+
+  /**
+   * Trata erros genéricos e retorna resposta HTTP apropriada
+   */
+  private handleError(error: unknown, res: Response): Response {
+    // Log completo do erro
+    console.error("[ReservationController] Erro capturado:")
+    console.error(
+      "[ReservationController] Tipo:",
+      error instanceof Error ? error.constructor.name : typeof error
+    )
+    console.error(
+      "[ReservationController] Mensagem:",
+      error instanceof Error ? error.message : String(error)
+    )
+    console.error(
+      "[ReservationController] Stack:",
+      error instanceof Error ? error.stack : "N/A"
+    )
+
+    // Tratamento específico por tipo de erro
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: "Erro de validação",
+        details: error.issues,
+      })
+    }
+
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({
+        error: error.message,
+      })
+    }
+
+    // Verificar se é erro do Prisma
+    if (error && typeof error === "object" && "code" in error) {
+      return this.handlePrismaError(error as PrismaError, res)
+    }
+
+    // Erro genérico não tratado
+    return res.status(500).json({
+      error: "Erro interno do servidor",
+    })
+  }
 
   async create(req: Request, res: Response): Promise<Response> {
     try {
@@ -33,18 +128,7 @@ export class ReservationController {
 
       return res.status(201).json(reservation)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -72,18 +156,7 @@ export class ReservationController {
 
       return res.status(200).json(reservations)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -104,12 +177,7 @@ export class ReservationController {
 
       return res.status(200).json(reservations)
     } catch (error) {
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -133,18 +201,7 @@ export class ReservationController {
 
       return res.status(200).json(reservation)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -158,6 +215,21 @@ export class ReservationController {
 
       const { id } = uuidParamSchema.parse(req.params)
       const data = updateReservationSchema.parse(req.body)
+
+      // LOG DE INVESTIGAÇÃO: Parâmetros da requisição
+      console.log(
+        "[ReservationController.update] Iniciando atualização de reserva"
+      )
+      console.log("[ReservationController.update] ID da reserva:", id)
+      console.log(
+        "[ReservationController.update] Body da requisição:",
+        JSON.stringify(data, null, 2)
+      )
+      console.log(
+        "[ReservationController.update] Usuário:",
+        req.user.id,
+        req.user.name
+      )
 
       // Get reservation to check ownership
       const existingReservation = await this.reservationService.findById(id)
@@ -174,20 +246,15 @@ export class ReservationController {
 
       const reservation = await this.reservationService.update(id, data)
 
+      // LOG DE INVESTIGAÇÃO: Sucesso
+      console.log(
+        "[ReservationController.update] Reserva atualizada com sucesso:",
+        reservation.id
+      )
+
       return res.status(200).json(reservation)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -218,18 +285,7 @@ export class ReservationController {
 
       return res.status(200).json(reservation)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -261,18 +317,7 @@ export class ReservationController {
 
       return res.status(204).send()
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 
@@ -299,18 +344,7 @@ export class ReservationController {
 
       return res.status(200).json(reservations)
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          error: "Erro de validação",
-          details: error.issues,
-        })
-      }
-      if (error instanceof AppError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-        })
-      }
-      throw error
+      return this.handleError(error, res)
     }
   }
 }
