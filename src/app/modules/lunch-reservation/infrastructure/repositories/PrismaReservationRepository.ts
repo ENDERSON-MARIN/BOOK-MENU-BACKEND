@@ -32,6 +32,32 @@ export class PrismaReservationRepository implements ReservationRepository {
           lte: endOfDay,
         },
       },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservation ? this.toDomain(reservation) : null
@@ -41,6 +67,32 @@ export class PrismaReservationRepository implements ReservationRepository {
     const reservations = await this.prisma.reservation.findMany({
       where: { userId },
       orderBy: { reservationDate: "desc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -54,6 +106,32 @@ export class PrismaReservationRepository implements ReservationRepository {
     const reservations = await this.prisma.reservation.findMany({
       where: { menuId },
       orderBy: { createdAt: "desc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -63,6 +141,32 @@ export class PrismaReservationRepository implements ReservationRepository {
     const reservations = await this.prisma.reservation.findMany({
       where: { status },
       orderBy: { reservationDate: "desc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -85,6 +189,32 @@ export class PrismaReservationRepository implements ReservationRepository {
         status: ReservationStatus.ACTIVE,
       },
       orderBy: { createdAt: "asc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -102,6 +232,32 @@ export class PrismaReservationRepository implements ReservationRepository {
         },
       },
       orderBy: { reservationDate: "asc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -110,6 +266,32 @@ export class PrismaReservationRepository implements ReservationRepository {
   async findById(id: string): Promise<Reservation | null> {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservation ? this.toDomain(reservation) : null
@@ -118,6 +300,32 @@ export class PrismaReservationRepository implements ReservationRepository {
   async findAll(): Promise<Reservation[]> {
     const reservations = await this.prisma.reservation.findMany({
       orderBy: { reservationDate: "desc" },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return reservations.map(this.toDomain)
@@ -132,6 +340,32 @@ export class PrismaReservationRepository implements ReservationRepository {
         reservationDate: reservationData.reservationDate,
         status: ReservationStatus.ACTIVE,
         isAutoGenerated: reservationData.isAutoGenerated ?? false,
+      },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
       },
     })
 
@@ -152,6 +386,32 @@ export class PrismaReservationRepository implements ReservationRepository {
           status: reservationData.status,
         }),
       },
+      include: {
+        menu: {
+          include: {
+            menuCompositions: {
+              include: {
+                menuItem: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+            variations: {
+              include: {
+                proteinItem: true,
+              },
+            },
+          },
+        },
+        menuVariation: {
+          include: {
+            proteinItem: true,
+          },
+        },
+        user: true,
+      },
     })
 
     return this.toDomain(updated)
@@ -164,8 +424,8 @@ export class PrismaReservationRepository implements ReservationRepository {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private toDomain(data: any): Reservation {
-    return new Reservation(
+  private toDomain(data: any): any {
+    const reservation = new Reservation(
       data.id,
       data.userId,
       data.menuId,
@@ -176,5 +436,13 @@ export class PrismaReservationRepository implements ReservationRepository {
       data.createdAt,
       data.updatedAt
     )
+
+    // Preserve Prisma relations if they exist
+    return {
+      ...reservation,
+      ...(data.menu && { menu: data.menu }),
+      ...(data.menuVariation && { menuVariation: data.menuVariation }),
+      ...(data.user && { user: data.user }),
+    }
   }
 }
