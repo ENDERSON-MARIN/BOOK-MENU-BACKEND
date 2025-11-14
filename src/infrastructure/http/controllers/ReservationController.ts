@@ -154,6 +154,11 @@ export class ReservationController {
         reservations = await this.reservationService.findByUser(req.user!.id)
       }
 
+      // Apply status filter if provided
+      if (query.status) {
+        reservations = reservations.filter((r) => r.status === query.status)
+      }
+
       return res.status(200).json(reservations)
     } catch (error) {
       return this.handleError(error, res)
@@ -340,6 +345,11 @@ export class ReservationController {
           startDate,
           endDate
         )
+      }
+
+      // Apply status filter if provided
+      if (query.status) {
+        reservations = reservations.filter((r) => r.status === query.status)
       }
 
       return res.status(200).json(reservations)
