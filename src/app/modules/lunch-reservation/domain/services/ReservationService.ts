@@ -75,12 +75,28 @@ export class ReservationService {
       throw new AppError("Usuário já possui reserva ativa para esta data", 409)
     }
 
+    // Validação explícita: verificar se variations existe e é um array
+    if (!menu.variations || !Array.isArray(menu.variations)) {
+      throw new AppError("Cardápio não possui variações disponíveis", 400)
+    }
+
     // Validate menu variation exists
     const menuVariation = menu.variations.find(
       (v) => v.id === reservationData.menuVariationId
     )
     if (!menuVariation) {
-      throw new AppError("Variação de cardápio não encontrada", 404)
+      throw new AppError(
+        `Variação de cardápio com ID ${reservationData.menuVariationId} não encontrada no cardápio`,
+        404
+      )
+    }
+
+    // Validação: verificar se a variação pertence ao menu correto
+    if (menuVariation.menuId !== reservationData.menuId) {
+      throw new AppError(
+        "A variação selecionada não pertence ao cardápio especificado",
+        400
+      )
     }
 
     // Check cutoff time for same-day reservations
@@ -132,40 +148,141 @@ export class ReservationService {
     id: string,
     reservationData: UpdateReservationDTO
   ): Promise<Reservation> {
+    // LOG DE INVESTIGAÇÃO: Início do método
+    console.log("[ReservationService.update] Iniciando atualização")
+    console.log("[ReservationService.update] ID:", id)
+    console.log(
+      "[ReservationService.update] Dados:",
+      JSON.stringify(reservationData, null, 2)
+    )
+
     const existingReservation = await this.reservationRepository.findById(id)
     if (!existingReservation) {
+      console.log("[ReservationService.update] Reserva não encontrada:", id)
       throw new AppError("Reserva não encontrada", 404)
     }
 
+    // LOG DE INVESTIGAÇÃO: Reserva encontrada
+    console.log("[ReservationService.update] Reserva encontrada:")
+    console.log(
+      "[ReservationService.update] - Status:",
+      existingReservation.status
+    )
+    console.log(
+      "[ReservationService.update] - MenuId:",
+      existingReservation.menuId
+    )
+    console.log(
+      "[ReservationService.update] - MenuVariationId atual:",
+      existingReservation.menuVariationId
+    )
+    console.log(
+      "[ReservationService.update] - Data da reserva:",
+      existingReservation.reservationDate
+    )
+
     // Check if reservation can be modified
+    console.log(
+      "[ReservationService.update] Verificando se pode ser modificada..."
+    )
     if (!existingReservation.canBeModified()) {
+      console.log("[ReservationService.update] Reserva não pode ser modificada")
       throw new AppError(
         "Reserva não pode ser alterada (prazo expirado ou cancelada)",
         400
       )
     }
+    console.log("[ReservationService.update] Reserva pode ser modificada ✓")
 
     // If changing menu variation, validate it exists
     if (reservationData.menuVariationId) {
+      console.log(
+        "[ReservationService.update] Validando nova variação:",
+        reservationData.menuVariationId
+      )
+
       const menu = await this.menuRepository.findWithComposition(
         existingReservation.menuId
       )
+
+      // LOG DE INVESTIGAÇÃO: Menu encontrado
+      console.log(
+        "[ReservationService.update] Menu encontrado:",
+        menu ? "SIM" : "NÃO"
+      )
+      if (menu) {
+        console.log("[ReservationService.update] - Menu ID:", menu.id)
+        console.log(
+          "[ReservationService.update] - Menu variations:",
+          menu.variations ? menu.variations.length : "undefined"
+        )
+        if (menu.variations) {
+          console.log(
+            "[ReservationService.update] - Variations IDs:",
+            menu.variations.map((v) => v.id)
+          )
+        }
+      }
+
       if (!menu) {
+        console.log("[ReservationService.update] Cardápio não encontrado")
         throw new AppError("Cardápio da reserva não encontrado", 404)
+      }
+
+      // Validação explícita: verificar se variations existe e é um array
+      if (!menu.variations || !Array.isArray(menu.variations)) {
+        console.log(
+          "[ReservationService.update] Menu não possui variações disponíveis"
+        )
+        throw new AppError("Cardápio não possui variações disponíveis", 400)
       }
 
       const menuVariation = menu.variations.find(
         (v) => v.id === reservationData.menuVariationId
       )
-      if (!menuVariation) {
-        throw new AppError("Variação de cardápio não encontrada", 404)
+
+      // LOG DE INVESTIGAÇÃO: Variação encontrada
+      console.log(
+        "[ReservationService.update] Variação encontrada:",
+        menuVariation ? "SIM" : "NÃO"
+      )
+      if (menuVariation) {
+        console.log(
+          "[ReservationService.update] - Variation ID:",
+          menuVariation.id
+        )
       }
+
+      if (!menuVariation) {
+        console.log(
+          "[ReservationService.update] Variação não encontrada no menu"
+        )
+        throw new AppError(
+          `Variação de cardápio com ID ${reservationData.menuVariationId} não encontrada no cardápio da reserva`,
+          404
+        )
+      }
+
+      // Validação: verificar se a variação pertence ao menu correto
+      if (menuVariation.menuId !== existingReservation.menuId) {
+        console.log(
+          "[ReservationService.update] Variação não pertence ao menu da reserva"
+        )
+        throw new AppError(
+          "A variação selecionada não pertence ao cardápio desta reserva",
+          400
+        )
+      }
+
+      console.log("[ReservationService.update] Variação validada ✓")
     }
 
+    console.log("[ReservationService.update] Chamando repository.update...")
     const updatedReservation = await this.reservationRepository.update(
       id,
       reservationData
     )
+    console.log("[ReservationService.update] Atualização concluída com sucesso")
     return updatedReservation
   }
 
@@ -255,11 +372,27 @@ export class ReservationService {
       throw new AppError("Cardápio da reserva não encontrado", 404)
     }
 
+    // Validação explícita: verificar se variations existe e é um array
+    if (!menu.variations || !Array.isArray(menu.variations)) {
+      throw new AppError("Cardápio não possui variações disponíveis", 400)
+    }
+
     const newMenuVariation = menu.variations.find(
       (v) => v.id === newMenuVariationId
     )
     if (!newMenuVariation) {
-      throw new AppError("Nova variação de cardápio não encontrada", 404)
+      throw new AppError(
+        `Variação de cardápio com ID ${newMenuVariationId} não encontrada no cardápio da reserva`,
+        404
+      )
+    }
+
+    // Validação: verificar se a variação pertence ao menu correto
+    if (newMenuVariation.menuId !== reservation.menuId) {
+      throw new AppError(
+        "A variação selecionada não pertence ao cardápio desta reserva",
+        400
+      )
     }
 
     // Update menu variation

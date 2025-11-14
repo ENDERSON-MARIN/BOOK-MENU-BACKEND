@@ -9,6 +9,7 @@ import {
   CreateReservationDTO,
   UpdateReservationDTO,
 } from "../../dtos/ReservationDTOs"
+import { AppError } from "../../../../shared/errors/AppError"
 
 export class PrismaReservationRepository implements ReservationRepository {
   constructor(private prisma: PrismaClient) {}
@@ -376,45 +377,153 @@ export class PrismaReservationRepository implements ReservationRepository {
     id: string,
     reservationData: UpdateReservationDTO
   ): Promise<Reservation> {
-    const updated = await this.prisma.reservation.update({
-      where: { id },
-      data: {
-        ...(reservationData.menuVariationId !== undefined && {
-          menuVariationId: reservationData.menuVariationId,
-        }),
-        ...(reservationData.status !== undefined && {
-          status: reservationData.status,
-        }),
-      },
-      include: {
-        menu: {
-          include: {
-            menuCompositions: {
-              include: {
-                menuItem: {
-                  include: {
-                    category: true,
+    // LOG DE INVESTIGAÇÃO: Início do método
+    console.log(
+      "[PrismaReservationRepository.update] Iniciando atualização no banco"
+    )
+    console.log("[PrismaReservationRepository.update] ID:", id)
+    console.log(
+      "[PrismaReservationRepository.update] Dados:",
+      JSON.stringify(reservationData, null, 2)
+    )
+
+    try {
+      // Validação de foreign key: verificar se menuVariationId existe e pertence ao menu correto
+      if (reservationData.menuVariationId !== undefined) {
+        console.log(
+          "[PrismaReservationRepository.update] Validando menuVariationId:",
+          reservationData.menuVariationId
+        )
+
+        // Buscar a reserva atual para obter o menuId
+        const currentReservation = await this.prisma.reservation.findUnique({
+          where: { id },
+          select: { menuId: true },
+        })
+
+        if (!currentReservation) {
+          throw new AppError("Reserva não encontrada", 404)
+        }
+
+        // Verificar se a variação existe na tabela menu_variations
+        const menuVariation = await this.prisma.menuVariation.findUnique({
+          where: { id: reservationData.menuVariationId },
+          select: { id: true, menuId: true },
+        })
+
+        if (!menuVariation) {
+          console.error(
+            "[PrismaReservationRepository.update] MenuVariation não encontrada:",
+            reservationData.menuVariationId
+          )
+          throw new AppError("Variação de cardápio não encontrada", 404)
+        }
+
+        // Verificar se a variação pertence ao menu da reserva
+        if (menuVariation.menuId !== currentReservation.menuId) {
+          console.error(
+            "[PrismaReservationRepository.update] MenuVariation não pertence ao menu da reserva"
+          )
+          console.error(
+            "[PrismaReservationRepository.update] MenuId da reserva:",
+            currentReservation.menuId
+          )
+          console.error(
+            "[PrismaReservationRepository.update] MenuId da variação:",
+            menuVariation.menuId
+          )
+          throw new AppError(
+            "A variação de cardápio não pertence ao menu desta reserva",
+            404
+          )
+        }
+
+        console.log(
+          "[PrismaReservationRepository.update] Validação de foreign key concluída com sucesso"
+        )
+      }
+
+      const updated = await this.prisma.reservation.update({
+        where: { id },
+        data: {
+          ...(reservationData.menuVariationId !== undefined && {
+            menuVariationId: reservationData.menuVariationId,
+          }),
+          ...(reservationData.status !== undefined && {
+            status: reservationData.status,
+          }),
+        },
+        include: {
+          menu: {
+            include: {
+              menuCompositions: {
+                include: {
+                  menuItem: {
+                    include: {
+                      category: true,
+                    },
                   },
                 },
               },
-            },
-            variations: {
-              include: {
-                proteinItem: true,
+              variations: {
+                include: {
+                  proteinItem: true,
+                },
               },
             },
           },
-        },
-        menuVariation: {
-          include: {
-            proteinItem: true,
+          menuVariation: {
+            include: {
+              proteinItem: true,
+            },
           },
+          user: true,
         },
-        user: true,
-      },
-    })
+      })
 
-    return this.toDomain(updated)
+      // LOG DE INVESTIGAÇÃO: Sucesso
+      console.log(
+        "[PrismaReservationRepository.update] Atualização no banco concluída com sucesso"
+      )
+      console.log(
+        "[PrismaReservationRepository.update] Reserva atualizada:",
+        updated.id
+      )
+
+      return this.toDomain(updated)
+    } catch (error) {
+      // LOG DE INVESTIGAÇÃO: Erro detalhado
+      console.error(
+        "[PrismaReservationRepository.update] Erro ao atualizar no banco:"
+      )
+      console.error(
+        "[PrismaReservationRepository.update] Tipo do erro:",
+        error instanceof Error ? error.constructor.name : typeof error
+      )
+      console.error(
+        "[PrismaReservationRepository.update] Mensagem:",
+        error instanceof Error ? error.message : String(error)
+      )
+      console.error(
+        "[PrismaReservationRepository.update] Stack trace:",
+        error instanceof Error ? error.stack : "N/A"
+      )
+
+      // Se for erro do Prisma, logar detalhes específicos
+      if (error && typeof error === "object" && "code" in error) {
+        const prismaError = error as { code?: string; meta?: unknown }
+        console.error(
+          "[PrismaReservationRepository.update] Código do erro Prisma:",
+          prismaError.code
+        )
+        console.error(
+          "[PrismaReservationRepository.update] Meta do erro:",
+          prismaError.meta
+        )
+      }
+
+      throw error
+    }
   }
 
   async delete(id: string): Promise<void> {
@@ -437,12 +546,17 @@ export class PrismaReservationRepository implements ReservationRepository {
       data.updatedAt
     )
 
-    // Preserve Prisma relations if they exist
-    return {
-      ...reservation,
-      ...(data.menu && { menu: data.menu }),
-      ...(data.menuVariation && { menuVariation: data.menuVariation }),
-      ...(data.user && { user: data.user }),
+    // Preserve Prisma relations if they exist by attaching them to the instance
+    if (data.menu) {
+      Object.assign(reservation, { menu: data.menu })
     }
+    if (data.menuVariation) {
+      Object.assign(reservation, { menuVariation: data.menuVariation })
+    }
+    if (data.user) {
+      Object.assign(reservation, { user: data.user })
+    }
+
+    return reservation
   }
 }
