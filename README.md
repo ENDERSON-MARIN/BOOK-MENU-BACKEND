@@ -28,12 +28,12 @@ API REST para gerenciamento de reservas de almoço corporativo, desenvolvida com
 <div style="overflow-x: auto;">
     <table style="width: 100%;">
         <tr>
-            <td style="width: 50%;"><img src="./public/screenshots/doc.png" alt="Documentação geral da API de reservas de almoço" style="width: 100%; height: auto; object-fit: cover;" /></td>
-            <td style="width: 50%;"><img src="./public/screenshots/post.png" alt="Criar reserva de almoço" style="width: 100%; height: auto; object-fit: cover;" /></td>
+            <td style="width: 50%;"><img src="./public/screenshots/doc1.png" alt="Documentação geral da API de reservas de almoço parte 1" style="width: 100%; height: auto; object-fit: cover;" /></td>
+            <td style="width: 50%;"><img src="./public/screenshots/doc2.png" alt="Documentação geral da API de reservas de almoço parte 2" style="width: 100%; height: auto; object-fit: cover;" /></td>
         </tr>
         <tr>
-            <td style="width: 50%;"><img src="./public/screenshots/get.png" alt="Listar cardápios da semana" style="width: 100%; height: auto; object-fit: cover;" /></td>
-            <td style="width: 50%;"><img src="./public/screenshots/patch.png" alt="Atualizar reserva de almoço" style="width: 100%; height: auto; object-fit: cover;" /></td>
+            <td style="width: 50%;"><img src="./public/screenshots/doc3.png" alt="Documentação geral da API de reservas de almoço parte 3" style="width: 100%; height: auto; object-fit: cover;" /></td>
+            <td style="width: 50%;"><img src="./public/screenshots/doc4.png" alt="Documentação geral da API de reservas de almoço parte 4" style="width: 100%; height: auto; object-fit: cover;" /></td>
         </tr>
     </table>
 </div>
