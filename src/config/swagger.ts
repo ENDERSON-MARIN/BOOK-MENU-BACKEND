@@ -5469,7 +5469,7 @@ export const swaggerDocument = {
         tags: ["Reservations"],
         summary: "Listar todas as reservas (ADMIN)",
         description:
-          "Retorna todas as reservas do sistema. Permite filtrar por data. Requer privilégios de administrador (ADMIN).",
+          "Retorna todas as reservas do sistema. Permite filtrar por data, status e usuário. Requer privilégios de administrador (ADMIN).",
         security: [
           {
             BearerAuth: [],
@@ -5494,6 +5494,26 @@ export const swaggerDocument = {
             schema: {
               type: "string",
               format: "date",
+            },
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            description: "Filtrar por status da reserva",
+            schema: {
+              type: "string",
+              enum: ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"],
+            },
+          },
+          {
+            name: "userId",
+            in: "query",
+            required: false,
+            description: "Filtrar por ID do usuário (UUID)",
+            schema: {
+              type: "string",
+              format: "uuid",
             },
           },
         ],

@@ -352,6 +352,11 @@ export class ReservationController {
         reservations = reservations.filter((r) => r.status === query.status)
       }
 
+      // Apply userId filter if provided
+      if (query.userId) {
+        reservations = reservations.filter((r) => r.userId === query.userId)
+      }
+
       return res.status(200).json(reservations)
     } catch (error) {
       return this.handleError(error, res)

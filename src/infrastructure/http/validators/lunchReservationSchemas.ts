@@ -236,4 +236,5 @@ export const dateRangeQuerySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data final deve estar no formato YYYY-MM-DD")
     .optional(),
   status: z.nativeEnum(ReservationStatus).optional(),
+  userId: z.string().uuid("ID do usuário deve ser um UUID válido").optional(),
 })
