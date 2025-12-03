@@ -5,6 +5,7 @@ import { AppError } from "@/app/shared"
 import {
   createReservationSchema,
   updateReservationSchema,
+  updateReservationStatusSchema,
   uuidParamSchema,
   dateRangeQuerySchema,
 } from "../validators"
@@ -358,6 +359,32 @@ export class ReservationController {
       }
 
       return res.status(200).json(reservations)
+    } catch (error) {
+      return this.handleError(error, res)
+    }
+  }
+
+  async updateReservationStatus(
+    req: Request,
+    res: Response
+  ): Promise<Response> {
+    try {
+      const { id } = uuidParamSchema.parse(req.params)
+      const { status } = updateReservationStatusSchema.parse(req.body)
+
+      let reservation
+      if (status === "CANCELLED") {
+        reservation = await this.reservationService.adminCancelReservation(id)
+      } else if (status === "ACTIVE") {
+        reservation =
+          await this.reservationService.adminReactivateReservation(id)
+      } else {
+        return res.status(400).json({
+          error: "Status inválido",
+        })
+      }
+
+      return res.status(200).json(reservation)
     } catch (error) {
       return this.handleError(error, res)
     }

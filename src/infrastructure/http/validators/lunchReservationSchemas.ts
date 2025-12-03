@@ -197,6 +197,14 @@ export const updateReservationSchema = z.object({
   status: z.nativeEnum(ReservationStatus).optional(),
 })
 
+export const updateReservationStatusSchema = z.object({
+  status: z
+    .enum(["ACTIVE", "CANCELLED"], {
+      message: "Status deve ser ACTIVE ou CANCELLED",
+    })
+    .transform((val) => val as ReservationStatus),
+})
+
 // Common param schemas
 export const uuidParamSchema = z.object({
   id: z.string().uuid("ID deve ser um UUID válido"),

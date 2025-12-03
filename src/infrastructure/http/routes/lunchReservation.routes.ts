@@ -248,6 +248,12 @@ lunchReservationRouter.get(
   requireAdmin(),
   reservationController.getAllReservations.bind(reservationController)
 )
+lunchReservationRouter.put(
+  "/admin/reservations/:id/status",
+  authMiddleware,
+  requireAdmin(),
+  reservationController.updateReservationStatus.bind(reservationController)
+)
 // Note: Using getAllReservations with query parameters for date filtering
 // The controller handles date range filtering via query parameters
 
