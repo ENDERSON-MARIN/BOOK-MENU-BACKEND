@@ -347,6 +347,49 @@ export class ReservationService {
     return updatedReservation
   }
 
+  async adminCancelReservation(id: string): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    if (reservation.isCancelled()) {
+      throw new AppError("Reserva já está cancelada", 400)
+    }
+
+    // Cancel reservation using entity method
+    reservation.cancel()
+
+    // Update in repository
+    const updatedReservation = await this.reservationRepository.update(id, {
+      status: reservation.status,
+    })
+
+    return updatedReservation
+  }
+
+  async adminReactivateReservation(id: string): Promise<Reservation> {
+    const reservation = await this.reservationRepository.findById(id)
+    if (!reservation) {
+      throw new AppError("Reserva não encontrada", 404)
+    }
+
+    if (!reservation.isCancelled()) {
+      throw new AppError("Apenas reservas canceladas podem ser reativadas", 400)
+    }
+
+    // Admin can reactivate without cutoff time validation
+    // Reactivate reservation using entity method
+    reservation.activate()
+
+    // Update in repository
+    const updatedReservation = await this.reservationRepository.update(id, {
+      status: reservation.status,
+    })
+
+    return updatedReservation
+  }
+
   async changeMenuVariation(
     id: string,
     newMenuVariationId: string
