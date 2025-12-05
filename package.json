@@ -6,7 +6,7 @@
     "build": "prisma generate && tsc && tsc-alias",
     "start": "node dist/server.js",
     "dev": "tsx --watch --env-file=.env src/server.ts",
-    "vercel-build": "prisma generate && prisma migrate deploy",
+    "vercel-build": "prisma generate && prisma migrate deploy && tsc && tsc-alias",
     "test": "vitest",
     "test:unit": "vitest --config vitest.unit.config.ts",
     "test:integration": "vitest --config vitest.integration.config.ts",
