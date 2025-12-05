@@ -1,12 +1,7 @@
-import {
-  Router,
-  Request,
-  Response,
-  type Router as ExpressRouter,
-} from "express"
+import { Router, Request, Response, type IRouter } from "express"
 import { makeLunchReservationModule } from "@/app/modules"
 
-const cronRouter: ExpressRouter = Router()
+const cronRouter: IRouter = Router()
 
 /**
  * Vercel Cron Job endpoint for auto reservations

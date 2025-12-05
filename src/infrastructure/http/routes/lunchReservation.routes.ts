@@ -1,9 +1,9 @@
-import { Router, type Router as ExpressRouter } from "express"
+import { Router, type IRouter } from "express"
 import { makeLunchReservationModule } from "@/app/modules/lunch-reservation"
 import { createAuthMiddleware } from "../middlewares/authMiddleware"
 import { requireAdmin, requireUser } from "../middlewares/roleMiddleware"
 
-const lunchReservationRouter: ExpressRouter = Router()
+const lunchReservationRouter: IRouter = Router()
 
 // Initialize lunch reservation module
 const {
