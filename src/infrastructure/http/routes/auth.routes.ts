@@ -1,7 +1,7 @@
-import { Router, type Router as ExpressRouter } from "express"
+import { Router, type IRouter } from "express"
 import { makeAuthModule } from "@/app/modules/auth"
 
-const authRouter: ExpressRouter = Router()
+const authRouter: IRouter = Router()
 
 // Initialize auth module to get auth controller
 const { authController } = makeAuthModule()

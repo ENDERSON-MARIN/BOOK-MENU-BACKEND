@@ -1,9 +1,9 @@
-import { Router, type Router as ExpressRouter } from "express"
+import { Router, type IRouter } from "express"
 import { makeDeviceModule } from "@/app/modules/device"
 import { authenticate, authorize } from "@/infrastructure/http/middlewares"
 import { UserRole } from "@/app/modules/auth/domain/User"
 
-const deviceRouter: ExpressRouter = Router()
+const deviceRouter: IRouter = Router()
 
 // Initialize device module with WebSocket service if available
 const { deviceController } = makeDeviceModule({
