@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc && tsc-alias",
+    "build": "prisma generate && tsc && tsc-alias",
     "start": "node dist/server.js",
     "dev": "tsx --watch --env-file=.env src/server.ts",
+    "vercel-build": "prisma generate && prisma migrate deploy",
     "test": "vitest",
     "test:unit": "vitest --config vitest.unit.config.ts",
     "test:integration": "vitest --config vitest.integration.config.ts",
@@ -22,6 +23,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
+    "test:cron": "tsx scripts/test-cron.ts",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down -v"

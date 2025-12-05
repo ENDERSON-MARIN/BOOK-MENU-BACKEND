@@ -1,0 +1,11 @@
+node_modules
+dist
+tests
+coverage
+docs
+.env
+.env.test
+.git
+.husky
+.kiro
+.vscode
