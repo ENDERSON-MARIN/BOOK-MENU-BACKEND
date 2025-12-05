@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from "express"
 import { authRouter } from "./auth.routes"
 import { deviceRouter } from "./device.routes"
 import { lunchReservationRouter } from "./lunchReservation.routes"
+import { cronRouter } from "./cron.routes"
 
 /**
  * Creates the main application router with all module routes
@@ -18,6 +19,9 @@ export function applicationRouter(): ExpressRouter {
 
   // Lunch reservation routes
   router.use("/lunch-reservation", lunchReservationRouter)
+
+  // Cron jobs routes (for Vercel Cron)
+  router.use("/cron", cronRouter)
 
   return router
 }
