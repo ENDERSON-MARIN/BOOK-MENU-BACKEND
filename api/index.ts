@@ -1,6 +1,6 @@
 import { Express } from "express"
-import { createServer } from "../src/infrastructure/http/server"
-import { applicationRouter } from "../src/infrastructure/http/routes"
+import { createServer } from "../dist/infrastructure/http/server"
+import { applicationRouter } from "../dist/infrastructure/http/routes"
 
 // Create Main Router
 const appRouter = applicationRouter()
