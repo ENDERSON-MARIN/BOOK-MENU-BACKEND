@@ -1,0 +1,187 @@
+# Implementation Plan
+
+- [x] 1. Install dependencies and configure environment
+  - Install jsonwebtoken, bcryptjs, @types/jsonwebtoken, @types/bcryptjs
+  - Add JWT_SECRET and JWT_EXPIRES_IN to .env and .env.example files
+  - _Requirements: 3.3_
+
+- [x] 2. Create domain layer for auth module
+  - [x] 2.1 Create User entity with UserRole, UserType, and UserStatus enums
+    - Write User class with id, cpf, password, name, role, userType, status fields
+    - Implement isActive() method to check if status is ATIVO
+    - _Requirements: 1.4_
+  - [x] 2.2 Create UserRepository interface
+    - Define findByCpf(cpf: string) method
+    - Define findById(id: string) method
+    - _Requirements: 1.1, 1.2_
+
+- [x] 3. Implement DTOs for authentication
+  - [x] 3.1 Create LoginDTO interface
+    - Define cpf and password fields
+    - _Requirements: 1.1, 1.5_
+  - [x] 3.2 Create AuthResponseDTO interface
+    - Define token and user fields (id, cpf, name, role)
+    - _Requirements: 1.1_
+  - [x] 3.3 Create TokenPayload interface
+    - Define userId, cpf, role, iat, exp fields
+    - _Requirements: 3.1, 3.4_
+
+- [x] 4. Implement AuthService with core authentication logic
+  - [x] 4.1 Create AuthService class constructor
+    - Accept UserRepository, jwtSecret, and jwtExpiresIn as dependencies
+    - _Requirements: 3.3_
+  - [x] 4.2 Implement password hashing methods
+    - Write hashPassword() using bcrypt with salt rounds = 10
+    - Write comparePassword() using bcrypt.compare()
+    - _Requirements: 2.1, 2.2_
+  - [x] 4.3 Implement JWT token methods
+    - Write generateToken() to create JWT with userId, cpf, role, iat
+    - Write validateToken() to verify JWT signature and expiration
+    - _Requirements: 3.1, 3.2, 3.4, 4.2, 4.3_
+  - [x] 4.4 Implement login method
+    - Validate credentials by finding user by CPF
+    - Compare password with stored hash
+    - Check if user status is ATIVO
+    - Generate and return token with user data
+    - Throw appropriate errors for invalid credentials or inactive users
+    - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
+- [x] 5. Create validation schemas
+  - [x] 5.1 Create authSchemas.ts with Zod schemas
+    - Write loginSchema validating CPF (11 digits, numeric) and password (min 6 chars)
+    - _Requirements: 7.1, 7.2, 7.4_
+
+- [x] 6. Implement infrastructure layer - database repository
+  - [x] 6.1 Create PrismaUserRepository implementing UserRepository
+    - Implement findByCpf() to query users table by CPF
+    - Implement findById() to query users table by ID
+    - Map Prisma User model to domain User entity
+    - _Requirements: 1.1, 1.2_
+
+- [x] 7. Implement infrastructure layer - HTTP controllers
+  - [x] 7.1 Create AuthController class
+    - Accept AuthService as dependency
+    - _Requirements: 1.1, 6.1_
+  - [x] 7.2 Implement login endpoint handler
+    - Validate request body using loginSchema
+    - Call AuthService.login() with cpf and password
+    - Return 200 with token and user data on success
+    - Return 400 for validation errors with field details
+    - Return 401 for invalid credentials
+    - Return 403 for inactive users
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 7.3_
+  - [x] 7.3 Implement logout endpoint handler
+    - Return 200 with success message "Logout realizado com sucesso"
+    - _Requirements: 6.1, 6.2, 6.3_
+
+- [x] 8. Implement authentication middleware
+  - [x] 8.1 Create authenticate middleware
+    - Extract token from Authorization header (Bearer format)
+    - Validate token using AuthService.validateToken()
+    - Attach decoded user data to req.user
+    - Call next() to proceed with request
+    - Return 401 with "Token não fornecido" if token is missing
+    - Return 401 with "Token inválido" if token is invalid
+    - Return 401 with "Token expirado" if token is expired
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+
+- [x] 9. Implement authorization middleware
+  - [x] 9.1 Create authorize middleware factory
+    - Accept allowed roles as parameters
+    - Return middleware function that checks req.user.role
+    - Call next() if user has required role
+    - Return 403 with "Acesso negado" if user lacks required role
+    - _Requirements: 5.1, 5.2, 5.3_
+
+- [x] 10. Create auth routes
+  - [x] 10.1 Create auth.routes.ts file
+    - Define POST /login route with validation and controller handler
+    - Define POST /logout route with controller handler
+    - _Requirements: 1.1, 6.1_
+
+- [x] 11. Implement factory pattern for dependency injection
+  - [x] 11.1 Create makeAuthModule factory
+    - Accept optional config (database, jwtSecret, jwtExpiresIn)
+    - Instantiate PrismaUserRepository with database client
+    - Instantiate AuthService with repository and JWT config
+    - Instantiate AuthController with AuthService
+    - Return AuthModule with controller and service
+    - _Requirements: 3.3_
+
+- [x] 12. Integrate auth module into application
+  - [x] 12.1 Register auth routes in main router
+    - Import and mount auth routes at /api/auth
+    - _Requirements: 1.1, 6.1_
+  - [x] 12.2 Export authenticate and authorize middlewares
+    - Make middlewares available for protecting other routes
+    - _Requirements: 4.5, 5.2_
+
+- [x] 13. Write integration tests for authentication endpoints
+  - [x] 13.1 Test POST /api/auth/login with valid credentials
+    - Verify 200 response with token and user data
+    - _Requirements: 1.1_
+  - [x] 13.2 Test POST /api/auth/login with invalid CPF
+    - Verify 401 response with "Credenciais inválidas"
+    - _Requirements: 1.2_
+  - [x] 13.3 Test POST /api/auth/login with incorrect password
+    - Verify 401 response with "Credenciais inválidas"
+    - _Requirements: 1.3_
+  - [x] 13.4 Test POST /api/auth/login with inactive user
+    - Verify 403 response with "Usuário inativo"
+    - _Requirements: 1.4_
+  - [x] 13.5 Test POST /api/auth/login with missing fields
+    - Verify 400 response with validation error details
+    - _Requirements: 1.5, 7.3_
+  - [x] 13.6 Test POST /api/auth/login with invalid CPF format
+    - Verify 400 response with CPF validation error
+    - _Requirements: 7.1, 7.3_
+  - [x] 13.7 Test POST /api/auth/login with short password
+    - Verify 400 response with password validation error
+    - _Requirements: 7.2, 7.3_
+  - [x] 13.8 Test POST /api/auth/logout
+    - Verify 200 response with success message
+    - _Requirements: 6.1, 6.3_
+
+- [x] 14. Write integration tests for authentication middleware
+  - [x] 14.1 Test protected endpoint without token
+    - Verify 401 response with "Token não fornecido"
+    - _Requirements: 4.1_
+  - [x] 14.2 Test protected endpoint with invalid token
+    - Verify 401 response with "Token inválido"
+    - _Requirements: 4.2_
+  - [x] 14.3 Test protected endpoint with expired token
+    - Verify 401 response with "Token expirado"
+    - _Requirements: 4.3_
+  - [x] 14.4 Test protected endpoint with valid token
+    - Verify request proceeds and user data is attached to req.user
+    - _Requirements: 4.4, 4.5_
+
+- [x] 15. Write integration tests for authorization middleware
+  - [x] 15.1 Test admin-only endpoint with USER role
+    - Verify 403 response with "Acesso negado"
+    - _Requirements: 5.1_
+  - [x] 15.2 Test admin-only endpoint with ADMIN role
+    - Verify request proceeds successfully
+    - _Requirements: 5.2_
+
+- [x] 16. Write unit tests for AuthService
+  - [x] 16.1 Test hashPassword and comparePassword methods
+    - Verify password is hashed correctly
+    - Verify correct password comparison returns true
+    - Verify incorrect password comparison returns false
+    - _Requirements: 2.1, 2.2_
+  - [x] 16.2 Test generateToken method
+    - Verify token contains userId, cpf, role, iat
+    - Verify token is signed with secret
+    - _Requirements: 3.1, 3.4_
+  - [x] 16.3 Test validateToken method
+    - Verify valid token is decoded correctly
+    - Verify invalid token throws error
+    - Verify expired token throws error
+    - _Requirements: 4.2, 4.3_
+  - [x] 16.4 Test login method with various scenarios
+    - Verify successful login with valid credentials
+    - Verify error for non-existent user
+    - Verify error for incorrect password
+    - Verify error for inactive user
+    - _Requirements: 1.1, 1.2, 1.3, 1.4_

@@ -1,0 +1,79 @@
+# Implementation Plan
+
+- [x] 1. Create factory infrastructure and interfaces
+  - Create the factories directory structure within the company module
+  - Define TypeScript interfaces for module factory pattern
+  - Create base types and configuration interfaces for factories
+  - _Requirements: 1.4, 3.3, 5.3_
+
+- [x] 2. Implement Company module factory
+  - [x] 2.1 Create CompanyModule interface
+    - Define interface that specifies the structure returned by the company factory
+    - Include companyController and companyService properties with proper typing
+    - _Requirements: 1.1, 1.4, 3.4_
+  - [x] 2.2 Implement makeCompanyModule factory function
+    - Create factory function that instantiates secondary adapters (PrismaCompanyRepository)
+    - Instantiate core services (CompanyService) with repository dependency
+    - Instantiate primary adapters (CompanyController) with service dependency
+    - Return properly typed CompanyModule interface
+    - _Requirements: 1.1, 1.2, 1.3, 3.1_
+  - [x] 2.3 Add factory configuration support
+    - Implement optional FactoryConfig parameter for database client injection
+    - Add environment-specific configuration handling
+    - Support custom database client for testing scenarios
+    - _Requirements: 5.2, 5.4, 5.5_
+
+- [x] 3. Refactor company routes to use factory
+  - [x] 3.1 Update company.routes.ts imports
+    - Remove direct imports of PrismaCompanyRepository, CompanyService, and prisma client
+    - Import makeCompanyModule factory function
+    - _Requirements: 2.1, 2.3_
+  - [x] 3.2 Replace manual dependency instantiation with factory call
+    - Remove manual instantiation of companyRepository, companyService, and companyController
+    - Call makeCompanyModule() to get controller instance
+    - Destructure companyController from factory result
+    - _Requirements: 2.2, 2.4_
+  - [x] 3.3 Verify route endpoints remain unchanged
+    - Ensure all existing route definitions continue to work with factory-provided controller
+    - Maintain same HTTP methods and paths for all endpoints
+    - _Requirements: 4.1, 4.4_
+
+- [x] 4. Update module exports and organization
+  - [x] 4.1 Update company module index.ts
+    - Export the makeCompanyModule factory function
+    - Maintain existing exports for backward compatibility
+    - _Requirements: 3.4, 4.2_
+  - [x] 4.2 Create factory index file
+    - Create index.ts in factories directory to export factory functions
+    - Follow consistent naming convention for factory exports
+    - _Requirements: 3.4, 5.1_
+
+- [x] 5. Implement comprehensive testing
+  - [x] 5.1 Create factory unit tests
+    - Test that makeCompanyModule creates all required dependencies correctly
+    - Verify proper dependency injection chain (repository -> service -> controller)
+    - Test factory with custom configuration parameters
+    - _Requirements: 1.5, 3.5, 5.4_
+  - [x] 5.2 Create mock factory for testing
+    - Implement makeMockCompanyModule function with jest mocks
+    - Provide mocked implementations of repository, service, and controller
+    - Enable isolated testing of individual components
+    - _Requirements: 5.4_
+  - [x] 5.3 Validate existing tests still pass
+    - Run existing test suite to ensure no regressions
+    - Update any tests that directly instantiate dependencies to use factories
+    - _Requirements: 4.5_
+
+- [ ] 6. Validate and finalize implementation
+  - [x] 6.1 Test all HTTP endpoints functionality
+    - Verify POST /api/companies endpoint works with factory-provided controller
+    - Test GET /api/companies endpoint returns proper data
+    - Validate GET /api/companies/:id endpoint with existing and non-existing IDs
+    - Test PUT /api/companies/:id endpoint for updates
+    - Verify DELETE /api/companies/:id endpoint removes companies correctly
+    - _Requirements: 4.1, 4.4_
+  - [x] 6.2 Verify error handling remains intact
+    - Test that business logic errors (duplicate CNPJ, not found) still work properly
+    - Ensure HTTP status codes remain consistent with previous implementation
+    - Validate error messages and response formats are unchanged
+    - _Requirements: 4.1, 4.3_

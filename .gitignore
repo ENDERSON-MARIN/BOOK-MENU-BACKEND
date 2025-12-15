@@ -284,4 +284,4 @@ vite.config.ts.timestamp-*
 .vite/
 
 #kiro
-.kiro/*
+# .kiro/*
