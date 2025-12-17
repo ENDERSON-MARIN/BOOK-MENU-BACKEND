@@ -11,6 +11,18 @@ Este guia detalha o processo completo de deploy do Sistema BookMenu em uma VM Ub
 
 ---
 
+## ⚠️ Importante: Onde Executar os Comandos
+
+> **Todos os comandos deste guia devem ser executados no terminal do Ubuntu via SSH ou console direto.**
+>
+> **Como conectar ao servidor:**
+>
+> 1. Abra um terminal no seu computador local
+> 2. Execute: `ssh usuario@seu-servidor-ip`
+> 3. Digite sua senha quando solicitado
+
+---
+
 ## 🔧 Fase 1: Preparação do Servidor
 
 ### 1.1 Conectar ao Servidor
@@ -23,12 +35,16 @@ ssh usuario@seu-servidor-ip
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl wget git vim htop
+sudo apt install -y curl wget git vim htop tree
 ```
 
 ### 1.3 Configurar Timezone
 
 ```bash
+# Verificar timezone atual
+timedatectl
+
+# Configurar timezone
 sudo timedatectl set-timezone America/Sao_Paulo
 ```
 
@@ -92,8 +108,11 @@ newgrp docker
 ### 2.6 Verificar Instalação
 
 ```bash
+# Verificar versões
 docker --version
 docker compose version
+
+# Testar Docker
 docker run hello-world
 ```
 
@@ -112,7 +131,7 @@ cd /opt/bookmenu-docker
 # Estrutura de volumes
 mkdir -p volumes/{postgres-data,app-logs,nginx-ssl,backups}
 mkdir -p nginx/conf.d
-mkdir -p monitoring/{grafana/dashboards,grafana/datasources}
+mkdir -p monitoring/{grafana/dashboards,grafana/datasources,prometheus}
 mkdir -p secrets
 mkdir -p scripts
 
@@ -131,9 +150,10 @@ tree /opt/bookmenu-docker -L 3
 # │   ├── frontend       # Código do Next.js
 # │   └── docker-compose.yml
 # ├── monitoring
-# │   └── grafana
-# │       ├── dashboards
-# │       └── datasources
+# │   ├── grafana
+# │   │   ├── dashboards
+# │   │   └── datasources
+# │   └── prometheus
 # ├── nginx
 # │   └── conf.d
 # ├── scripts
@@ -154,7 +174,7 @@ tree /opt/bookmenu-docker -L 3
 ```bash
 cd /opt/bookmenu-docker/app
 
-# Se backend e frontend estão no mesmo repositório
+# Se backend e frontend estão em repositórios separados
 git clone https://github.com/seu-usuario/bookmenu-api.git backend
 git clone https://github.com/seu-usuario/bookmenu-frontend.git frontend
 
@@ -200,14 +220,16 @@ EOF
 ### 4.3 Gerar Senhas Seguras
 
 ```bash
-# Gerar senha do banco
+# Gerar senha do banco (32 caracteres)
 openssl rand -base64 32
+# Exemplo de saída: K7xP9mN2vQ8rT5wY3zA1bC4dE6fG0hI=
 
-# Gerar JWT Secret
+# Gerar JWT Secret (64 caracteres)
 openssl rand -base64 64
+# Exemplo de saída: muito_longo_e_seguro...
 
 # Atualizar .env.production com as senhas geradas
-nano .env.production
+nano /opt/bookmenu-docker/app/.env.production
 ```
 
 ---
@@ -220,14 +242,29 @@ nano .env.production
 cd /opt/bookmenu-docker/volumes/nginx-ssl
 
 # Gerar certificado auto-assinado
+# IMPORTANTE: Substitua os valores abaixo com suas informações reais
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout key.pem \
   -out cert.pem \
-  -subj "/C=BR/ST=Estado/L=Cidade/O=Empresa/CN=bookmenu.seudominio.com"
+  -subj "/C=BR/ST=Santa Catarina/L=Rio do Sul/O=Cravil/CN=bookmenu.cravil.com"
 
 sudo chmod 644 cert.pem
 sudo chmod 600 key.pem
+sudo chown $USER:$USER cert.pem key.pem
+
+# Verificar certificado
+openssl x509 -in cert.pem -text -noout
 ```
+
+**Explicação dos campos (substitua com seus dados):**
+
+| Campo | Significado            | Exemplo             |
+| ----- | ---------------------- | ------------------- |
+| C     | País (código 2 letras) | BR                  |
+| ST    | Estado                 | Santa Catarina      |
+| L     | Cidade (Locality)      | Rio do Sul          |
+| O     | Organização/Empresa    | Cravil              |
+| CN    | Domínio do certificado | bookmenu.cravil.com |
 
 ### 5.2 Opção B: Let's Encrypt (Produção)
 
@@ -236,11 +273,13 @@ sudo chmod 600 key.pem
 sudo apt install -y certbot
 
 # Gerar certificado (antes de iniciar nginx)
+# Certifique-se de que a porta 80 está livre e o domínio aponta para o servidor
 sudo certbot certonly --standalone -d bookmenu.seudominio.com
 
 # Copiar certificados
 sudo cp /etc/letsencrypt/live/bookmenu.seudominio.com/fullchain.pem /opt/bookmenu-docker/volumes/nginx-ssl/cert.pem
 sudo cp /etc/letsencrypt/live/bookmenu.seudominio.com/privkey.pem /opt/bookmenu-docker/volumes/nginx-ssl/key.pem
+sudo chown $USER:$USER /opt/bookmenu-docker/volumes/nginx-ssl/*.pem
 ```
 
 ---
@@ -390,31 +429,47 @@ EOF
 
 ### 7.1 Backend Dockerfile
 
+Crie o arquivo `/opt/bookmenu-docker/app/backend/Dockerfile`
+
+**Opção A: Criar manualmente** - Abra o editor e cole o conteúdo abaixo
+
+```bash
+nano /opt/bookmenu-docker/app/backend/Dockerfile
+```
+
+**Opção B: Via terminal (automatizado)** - Cole o bloco completo:
+
 ```bash
 cat > /opt/bookmenu-docker/app/backend/Dockerfile << 'EOF'
 # Build stage
 FROM node:22-alpine AS builder
 
+# Instalar pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files (incluindo pnpm-lock.yaml)
+COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
 # Install ALL dependencies (including devDependencies for build)
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN pnpm prisma generate
 
 # Build application
-RUN npm run build
+RUN pnpm build
 
 # Production stage
 FROM node:22-alpine AS production
+
+# Instalar pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -426,7 +481,7 @@ WORKDIR /app
 COPY --from=builder --chown=bookmenu:nodejs /app/dist ./dist
 COPY --from=builder --chown=bookmenu:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=bookmenu:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=bookmenu:nodejs /app/package*.json ./
+COPY --from=builder --chown=bookmenu:nodejs /app/package.json ./
 
 # Install security updates and dumb-init
 RUN apk update && apk upgrade && apk add --no-cache dumb-init curl
@@ -440,9 +495,9 @@ USER bookmenu
 # Expose port
 EXPOSE 8080
 
-# Health check
+# Health check (usando /api-docs pois a API não tem /health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
+  CMD curl -f http://localhost:8080/api-docs || exit 1
 
 # Start application
 ENTRYPOINT ["dumb-init", "--"]
@@ -450,7 +505,23 @@ CMD ["node", "dist/server.js"]
 EOF
 ```
 
+> **Nota:** Este projeto usa `pnpm` como gerenciador de pacotes. O Dockerfile foi configurado para usar `pnpm install --frozen-lockfile` em vez de `npm ci`.
+
+---
+
 ### 7.2 Frontend Dockerfile (Next.js)
+
+Crie o arquivo `/opt/bookmenu-docker/app/frontend/Dockerfile`
+
+> **Nota:** Este Dockerfile usa `npm`. Se o projeto frontend usar `pnpm`, substitua `npm ci` por `pnpm install --frozen-lockfile` e `npm run build` por `pnpm build`.
+
+**Opção A: Criar manualmente**
+
+```bash
+nano /opt/bookmenu-docker/app/frontend/Dockerfile
+```
+
+**Opção B: Via terminal (automatizado)**
 
 ```bash
 cat > /opt/bookmenu-docker/app/frontend/Dockerfile << 'EOF'
@@ -460,7 +531,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json* ./
 RUN npm ci
 
 # Builder stage
@@ -520,13 +591,35 @@ CMD ["node", "server.js"]
 EOF
 ```
 
-> **Importante**: Para o Next.js funcionar com standalone output, adicione no `next.config.js`:
+> **⚠️ Importante - Configuração no código fonte (ANTES do build):**
+>
+> Para o Next.js funcionar com standalone output, adicione a configuração no arquivo `next.config.ts` (ou `.js`) na **raiz do projeto frontend**:
+>
+> **Se usar TypeScript (`next.config.ts`):**
+>
+> ```typescript
+> import type { NextConfig } from "next"
+>
+> const nextConfig: NextConfig = {
+>   output: "standalone",
+>   // ... outras configurações existentes
+> }
+>
+> export default nextConfig
+> ```
+>
+> **Se usar JavaScript (`next.config.js`):**
 >
 > ```javascript
-> module.exports = {
+> /** @type {import('next').NextConfig} */
+> const nextConfig = {
 >   output: "standalone",
 > }
+>
+> module.exports = nextConfig
 > ```
+>
+> Essa configuração faz o Next.js gerar um build otimizado para containers Docker.
 
 ---
 
@@ -536,8 +629,6 @@ EOF
 
 ```bash
 cat > /opt/bookmenu-docker/app/docker-compose.yml << 'EOF'
-version: "3.8"
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -549,7 +640,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - /opt/bookmenu-docker/volumes/postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - /opt/bookmenu-docker/volumes/backups:/backups
     networks:
       - bookmenu-network
@@ -590,14 +681,14 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       FRONTEND_URL: ${FRONTEND_URL}
     volumes:
-      - /opt/bookmenu-docker/volumes/app-logs:/app/logs
+      - app_logs:/app/logs
     networks:
       - bookmenu-network
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api-docs"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -622,7 +713,7 @@ services:
       dockerfile: Dockerfile
       target: runner
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://bookmenu.seudominio.com/api}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost/api}
     image: bookmenu/frontend:${VERSION:-latest}
     container_name: bookmenu-web
     restart: unless-stopped
@@ -666,7 +757,7 @@ services:
       - /opt/bookmenu-docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - /opt/bookmenu-docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - /opt/bookmenu-docker/volumes/nginx-ssl:/etc/nginx/ssl:ro
-      - /opt/bookmenu-docker/volumes/app-logs:/var/log/nginx
+      - nginx_logs:/var/log/nginx
     networks:
       - bookmenu-network
     depends_on:
@@ -691,15 +782,11 @@ services:
 networks:
   bookmenu-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
 volumes:
   postgres_data:
   app_logs:
-  nginx_ssl:
-  backup_storage:
+  nginx_logs:
 EOF
 ```
 
@@ -718,6 +805,7 @@ set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
@@ -727,6 +815,19 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 APP_DIR="/opt/bookmenu-docker/app"
 ENV_FILE="$APP_DIR/.env.production"
 BACKUP_DIR="/opt/bookmenu-docker/volumes/backups"
+
+# Flags
+NO_BUILD=false
+NO_BACKUP=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-build) NO_BUILD=true; shift ;;
+        --no-backup) NO_BACKUP=true; shift ;;
+        *) shift ;;
+    esac
+done
 
 # Verificar pré-requisitos
 check_prerequisites() {
@@ -747,6 +848,11 @@ check_prerequisites() {
 
 # Backup do banco
 backup_database() {
+    if [ "$NO_BACKUP" = true ]; then
+        log_warn "Backup ignorado (flag --no-backup)"
+        return
+    fi
+
     log_info "Criando backup do banco..."
 
     if docker ps | grep -q bookmenu-db; then
@@ -760,9 +866,18 @@ backup_database() {
 
 # Build das imagens
 build_images() {
+    if [ "$NO_BUILD" = true ]; then
+        log_warn "Build ignorado (flag --no-build)"
+        return
+    fi
+
     log_info "Construindo imagens Docker..."
     cd "$APP_DIR"
     docker compose --env-file "$ENV_FILE" build --no-cache
+    if [ $? -ne 0 ]; then
+        log_error "Falha no build das imagens"
+        exit 1
+    fi
     log_info "Imagens construídas"
 }
 
@@ -776,6 +891,10 @@ deploy() {
 
     # Iniciar containers
     docker compose --env-file "$ENV_FILE" up -d
+    if [ $? -ne 0 ]; then
+        log_error "Falha ao iniciar containers"
+        exit 1
+    fi
 
     log_info "Containers iniciados"
 }
@@ -788,7 +907,9 @@ check_health() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if docker ps --filter "health=healthy" | grep -q bookmenu; then
+        healthy_count=$(docker ps --filter "health=healthy" --format "{{.Names}}" | grep -c "bookmenu" || true)
+
+        if [ "$healthy_count" -ge 3 ]; then
             log_info "Serviços estão saudáveis"
             return 0
         fi
@@ -806,7 +927,11 @@ check_health() {
 run_migrations() {
     log_info "Executando migrações..."
     docker exec bookmenu-api npx prisma migrate deploy
-    log_info "Migrações executadas"
+    if [ $? -ne 0 ]; then
+        log_warn "Falha nas migrações (pode ser normal se já estão aplicadas)"
+    else
+        log_info "Migrações executadas"
+    fi
 }
 
 # Limpeza
@@ -819,9 +944,9 @@ cleanup() {
 
 # Main
 main() {
-    log_info "=========================================="
-    log_info "  DEPLOY BOOKMENU - $(date)"
-    log_info "=========================================="
+    echo -e "${CYAN}==========================================${NC}"
+    echo -e "${CYAN}  DEPLOY BOOKMENU - $(date)${NC}"
+    echo -e "${CYAN}==========================================${NC}"
 
     check_prerequisites
     backup_database
@@ -831,12 +956,12 @@ main() {
     if check_health; then
         run_migrations
         cleanup
-        log_info "=========================================="
-        log_info "  DEPLOY CONCLUÍDO COM SUCESSO!"
-        log_info "=========================================="
+        echo -e "${GREEN}==========================================${NC}"
+        echo -e "${GREEN}  DEPLOY CONCLUÍDO COM SUCESSO!${NC}"
+        echo -e "${GREEN}==========================================${NC}"
     else
         log_error "Deploy falhou - verificar logs"
-        docker compose logs
+        docker compose --env-file "$ENV_FILE" logs
         exit 1
     fi
 }
@@ -851,7 +976,18 @@ chmod +x /opt/bookmenu-docker/scripts/deploy.sh
 
 ```bash
 cd /opt/bookmenu-docker/scripts
+
+# Deploy completo
 ./deploy.sh
+
+# Deploy sem rebuild
+./deploy.sh --no-build
+
+# Deploy sem backup
+./deploy.sh --no-backup
+
+# Deploy sem rebuild e sem backup
+./deploy.sh --no-build --no-backup
 ```
 
 ---
@@ -871,16 +1007,23 @@ docker compose -f /opt/bookmenu-docker/app/docker-compose.yml logs -f
 docker logs bookmenu-api -f
 docker logs bookmenu-db -f
 docker logs bookmenu-proxy -f
+docker logs bookmenu-web -f
+
+# Verificar uso de recursos
+docker stats --no-stream
 ```
 
 ### 10.2 Testar Endpoints
 
 ```bash
-# Health check
+# Health check (ignorar erro de certificado para auto-assinado)
 curl -k https://localhost/health
 
 # API Health
 curl -k https://localhost/api/health
+
+# Ou usando a rota de documentação
+curl -k https://localhost/api/api-docs
 
 # Verificar SSL
 openssl s_client -connect localhost:443 -servername bookmenu.seudominio.com
@@ -892,12 +1035,19 @@ openssl s_client -connect localhost:443 -servername bookmenu.seudominio.com
 # Conectar ao banco
 docker exec -it bookmenu-db psql -U bookmenu_user -d bookmenu
 
-# Listar tabelas
-\dt
-
-# Sair
-\q
+# Dentro do psql:
+# \dt          -- Listar tabelas
+# \l           -- Listar bancos
+# \d tabela    -- Descrever tabela
+# \q           -- Sair
 ```
+
+### 10.4 Acessar via Navegador
+
+Abra o navegador e acesse:
+
+- **Aplicação**: https://seu-servidor-ip (aceite o aviso de certificado auto-assinado)
+- **API**: https://seu-servidor-ip/api/api-docs
 
 ---
 
@@ -916,15 +1066,16 @@ docker compose -f /opt/bookmenu-docker/app/docker-compose.yml down
 docker compose -f /opt/bookmenu-docker/app/docker-compose.yml logs -f --tail=100
 
 # Atualizar aplicação
-cd /opt/bookmenu-docker/app
-git pull
-./scripts/deploy.sh
+cd /opt/bookmenu-docker/app/backend && git pull
+cd /opt/bookmenu-docker/app/frontend && git pull
+/opt/bookmenu-docker/scripts/deploy.sh
 
 # Backup manual
-docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu > backup.sql
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu > /opt/bookmenu-docker/volumes/backups/backup-$TIMESTAMP.sql
 
 # Restore backup
-cat backup.sql | docker exec -i bookmenu-db psql -U bookmenu_user -d bookmenu
+cat /opt/bookmenu-docker/volumes/backups/backup-XXXXXXXX-XXXXXX.sql | docker exec -i bookmenu-db psql -U bookmenu_user -d bookmenu
 ```
 
 ### 11.2 Configurar Backup Automático
@@ -936,18 +1087,26 @@ cat > /opt/bookmenu-docker/scripts/backup.sh << 'EOF'
 BACKUP_DIR="/opt/bookmenu-docker/volumes/backups"
 BACKUP_NAME="backup-$(date +%Y%m%d-%H%M%S).sql"
 
+# Criar backup
 docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu > "$BACKUP_DIR/$BACKUP_NAME"
 
+# Comprimir backup
+gzip "$BACKUP_DIR/$BACKUP_NAME"
+
 # Manter apenas últimos 7 dias
+find "$BACKUP_DIR" -name "backup-*.sql.gz" -mtime +7 -delete
 find "$BACKUP_DIR" -name "backup-*.sql" -mtime +7 -delete
 
-echo "Backup criado: $BACKUP_NAME"
+echo "Backup criado: $BACKUP_NAME.gz"
 EOF
 
 chmod +x /opt/bookmenu-docker/scripts/backup.sh
 
 # Adicionar ao crontab (backup diário às 2h)
-(crontab -l 2>/dev/null; echo "0 2 * * * /opt/bookmenu-docker/scripts/backup.sh") | crontab -
+(crontab -l 2>/dev/null; echo "0 2 * * * /opt/bookmenu-docker/scripts/backup.sh >> /opt/bookmenu-docker/volumes/app-logs/backup.log 2>&1") | crontab -
+
+# Verificar crontab
+crontab -l
 ```
 
 ### 11.3 Renovação Automática SSL (Let's Encrypt)
@@ -957,26 +1116,59 @@ chmod +x /opt/bookmenu-docker/scripts/backup.sh
 cat > /opt/bookmenu-docker/scripts/renew-ssl.sh << 'EOF'
 #!/bin/bash
 certbot renew --quiet
+
+# Copiar certificados renovados
 cp /etc/letsencrypt/live/bookmenu.seudominio.com/fullchain.pem /opt/bookmenu-docker/volumes/nginx-ssl/cert.pem
 cp /etc/letsencrypt/live/bookmenu.seudominio.com/privkey.pem /opt/bookmenu-docker/volumes/nginx-ssl/key.pem
+
+# Recarregar nginx
 docker exec bookmenu-proxy nginx -s reload
+
+echo "SSL renovado em $(date)"
 EOF
 
 chmod +x /opt/bookmenu-docker/scripts/renew-ssl.sh
 
 # Adicionar ao crontab (verificar renovação 2x por dia)
-(crontab -l 2>/dev/null; echo "0 0,12 * * * /opt/bookmenu-docker/scripts/renew-ssl.sh") | crontab -
+(crontab -l 2>/dev/null; echo "0 0,12 * * * /opt/bookmenu-docker/scripts/renew-ssl.sh >> /opt/bookmenu-docker/volumes/app-logs/ssl-renew.log 2>&1") | crontab -
+```
+
+### 11.4 Configurar Inicialização Automática
+
+Os containers com `restart: unless-stopped` já reiniciam automaticamente. Para garantir:
+
+```bash
+# Habilitar Docker para iniciar no boot
+sudo systemctl enable docker
+
+# Verificar status
+sudo systemctl status docker
+
+# Criar script de startup (opcional)
+cat > /opt/bookmenu-docker/scripts/startup.sh << 'EOF'
+#!/bin/bash
+sleep 30  # Aguardar Docker iniciar completamente
+cd /opt/bookmenu-docker/app
+docker compose --env-file .env.production up -d
+EOF
+
+chmod +x /opt/bookmenu-docker/scripts/startup.sh
+
+# Adicionar ao crontab @reboot (opcional)
+(crontab -l 2>/dev/null; echo "@reboot /opt/bookmenu-docker/scripts/startup.sh >> /opt/bookmenu-docker/volumes/app-logs/startup.log 2>&1") | crontab -
 ```
 
 ---
 
 ## 🔥 Firewall (UFW)
 
+### Configurar Regras de Firewall
+
 ```bash
 # Habilitar UFW
 sudo ufw enable
 
-# Permitir SSH
+# Permitir SSH (IMPORTANTE: fazer isso primeiro!)
 sudo ufw allow 22/tcp
 
 # Permitir HTTP e HTTPS
@@ -985,6 +1177,14 @@ sudo ufw allow 443/tcp
 
 # Verificar status
 sudo ufw status verbose
+
+# Resultado esperado:
+# Status: active
+# To                         Action      From
+# --                         ------      ----
+# 22/tcp                     ALLOW       Anywhere
+# 80/tcp                     ALLOW       Anywhere
+# 443/tcp                    ALLOW       Anywhere
 ```
 
 ---
@@ -994,10 +1194,29 @@ sudo ufw status verbose
 ### Adicionar Prometheus + Grafana
 
 ```bash
+# Criar configuração do Prometheus
+cat > /opt/bookmenu-docker/monitoring/prometheus/prometheus.yml << 'EOF'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'bookmenu-api'
+    static_configs:
+      - targets: ['bookmenu-api:8080']
+    metrics_path: /metrics
+
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['172.17.0.1:9323']
+EOF
+
 # Criar docker-compose.monitoring.yml
 cat > /opt/bookmenu-docker/app/docker-compose.monitoring.yml << 'EOF'
-version: "3.8"
-
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -1006,9 +1225,13 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /opt/bookmenu-docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/bookmenu-docker/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     networks:
       - bookmenu-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
 
   grafana:
     image: grafana/grafana:latest
@@ -1018,6 +1241,7 @@ services:
       - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
@@ -1026,6 +1250,7 @@ services:
       - prometheus
 
 volumes:
+  prometheus_data:
   grafana_data:
 
 networks:
@@ -1033,8 +1258,474 @@ networks:
     external: true
 EOF
 
+# Criar a rede se não existir
+docker network create bookmenu-network 2>/dev/null || true
+
 # Iniciar monitoramento
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+cd /opt/bookmenu-docker/app
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml --env-file .env.production up -d
+```
+
+---
+
+## 🌐 Configuração do Arquivo Hosts (Local)
+
+Para acessar o servidor usando um domínio personalizado, configure o arquivo hosts na sua máquina local:
+
+```bash
+# No Linux/Mac (máquina local, não no servidor)
+sudo nano /etc/hosts
+
+# Adicionar entrada:
+# SEU_IP_DO_SERVIDOR menu.cravil.com.br
+
+# Exemplo:
+# 192.168.1.100 menu.cravil.com.br
+
+# Salvar e testar
+ping menu.cravil.com.br
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+### Problemas Comuns
+
+#### 1. Docker não inicia
+
+```bash
+# Verificar status do Docker
+sudo systemctl status docker
+
+# Reiniciar Docker
+sudo systemctl restart docker
+
+# Ver logs do Docker
+sudo journalctl -u docker -f
+```
+
+#### 2. Erro de permissão em volumes
+
+```bash
+# Verificar permissões
+ls -la /opt/bookmenu-docker/volumes/
+
+# Corrigir permissões
+sudo chown -R $USER:$USER /opt/bookmenu-docker/
+sudo chmod -R 755 /opt/bookmenu-docker/volumes/
+```
+
+#### 3. Containers não se comunicam
+
+```bash
+# Verificar rede
+docker network ls
+docker network inspect app_bookmenu-network
+
+# Recriar rede
+docker network rm app_bookmenu-network
+docker network create bookmenu-network
+
+# Reiniciar containers
+cd /opt/bookmenu-docker/app
+docker compose --env-file .env.production down
+docker compose --env-file .env.production up -d
+```
+
+#### 4. Porta já em uso
+
+```bash
+# Verificar processo usando a porta
+sudo lsof -i :80
+sudo lsof -i :443
+sudo lsof -i :3000
+sudo lsof -i :8080
+
+# Matar processo (substitua PID)
+sudo kill -9 <PID>
+
+# Ou parar serviço que está usando
+sudo systemctl stop nginx
+sudo systemctl stop apache2
+```
+
+#### 5. Problemas de memória
+
+```bash
+# Verificar uso de memória
+free -h
+docker stats --no-stream
+
+# Limpar cache do sistema
+sudo sync && sudo sysctl -w vm.drop_caches=3
+
+# Limpar recursos Docker não utilizados
+docker system prune -a -f
+```
+
+#### 6. Logs de erro
+
+```bash
+# Ver logs de todos os containers
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml logs
+
+# Ver logs de container específico
+docker logs bookmenu-api --tail 100
+
+# Seguir logs em tempo real
+docker logs -f bookmenu-api
+
+# Ver logs com timestamp
+docker logs -t bookmenu-api --tail 50
+```
+
+#### 7. Banco de dados não conecta
+
+```bash
+# Verificar se o container está rodando
+docker ps | grep bookmenu-db
+
+# Verificar logs do banco
+docker logs bookmenu-db --tail 50
+
+# Testar conexão
+docker exec bookmenu-db pg_isready -U bookmenu_user -d bookmenu
+
+# Conectar manualmente
+docker exec -it bookmenu-db psql -U bookmenu_user -d bookmenu
+```
+
+#### 8. Nginx retorna 502 Bad Gateway
+
+```bash
+# Verificar se backend está rodando
+docker ps | grep bookmenu-api
+
+# Verificar logs do nginx
+docker logs bookmenu-proxy --tail 50
+
+# Testar conectividade interna
+docker exec bookmenu-proxy curl -f http://bookmenu-api:8080/api-docs
+docker exec bookmenu-proxy curl -f http://bookmenu-web:3000
+
+# Verificar configuração do nginx
+docker exec bookmenu-proxy nginx -t
+```
+
+#### 9. Certificado SSL inválido
+
+```bash
+# Verificar certificado
+openssl x509 -in /opt/bookmenu-docker/volumes/nginx-ssl/cert.pem -text -noout
+
+# Verificar data de expiração
+openssl x509 -in /opt/bookmenu-docker/volumes/nginx-ssl/cert.pem -noout -dates
+
+# Regenerar certificado auto-assinado
+cd /opt/bookmenu-docker/volumes/nginx-ssl
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout key.pem -out cert.pem \
+  -subj "/C=BR/ST=Estado/L=Cidade/O=Empresa/CN=seudominio.com"
+
+# Recarregar nginx
+docker exec bookmenu-proxy nginx -s reload
+```
+
+---
+
+## 📋 Referência de Comandos Úteis
+
+Esta seção contém todos os comandos mais utilizados durante o deploy e manutenção do sistema.
+
+### 🐳 Docker Compose - Comandos Básicos
+
+```bash
+# Definir variáveis para facilitar (opcional)
+export COMPOSE_FILE="/opt/bookmenu-docker/app/docker-compose.yml"
+export ENV_FILE="/opt/bookmenu-docker/app/.env.production"
+
+# Iniciar todos os containers
+docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
+
+# Parar todos os containers
+docker compose -f $COMPOSE_FILE down
+
+# Parar e remover volumes (CUIDADO: apaga dados do banco!)
+docker compose -f $COMPOSE_FILE down -v
+
+# Reiniciar todos os containers
+docker compose -f $COMPOSE_FILE restart
+
+# Ver status dos containers
+docker compose -f $COMPOSE_FILE ps
+
+# Ver logs de todos os containers
+docker compose -f $COMPOSE_FILE logs -f
+
+# Ver logs com limite de linhas
+docker compose -f $COMPOSE_FILE logs -f --tail=100
+```
+
+### 🔨 Rebuild de Containers
+
+```bash
+# Rebuild completo (todos os serviços)
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production build --no-cache
+
+# Rebuild apenas do backend
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production build --no-cache backend
+
+# Rebuild apenas do frontend
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production build --no-cache frontend
+
+# Rebuild e reiniciar um serviço específico
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production up -d --build backend
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production up -d --build frontend
+
+# Rebuild completo e reiniciar tudo
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production up -d --build
+```
+
+### 📊 Logs e Monitoramento
+
+```bash
+# Logs do backend
+docker logs bookmenu-api -f
+docker logs bookmenu-api --tail=100
+
+# Logs do frontend
+docker logs bookmenu-web -f
+
+# Logs do banco de dados
+docker logs bookmenu-db -f
+
+# Logs do nginx
+docker logs bookmenu-proxy -f
+
+# Ver uso de recursos (CPU, memória)
+docker stats
+
+# Ver uso de recursos sem atualização contínua
+docker stats --no-stream
+
+# Verificar saúde dos containers
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+# Ver eventos do Docker
+docker events --since="1h"
+```
+
+### 🗄️ Prisma - Comandos de Banco de Dados
+
+```bash
+# Executar migrações pendentes
+docker exec bookmenu-api npx prisma migrate deploy
+
+# Gerar Prisma Client (após alterar schema)
+docker exec bookmenu-api npx prisma generate
+
+# Executar seed (popular banco com dados iniciais)
+docker exec bookmenu-api npx prisma db seed
+
+# Ver status das migrações
+docker exec bookmenu-api npx prisma migrate status
+
+# Reset do banco (CUIDADO: apaga todos os dados!)
+docker exec bookmenu-api npx prisma migrate reset --force
+
+# Abrir Prisma Studio (interface visual do banco)
+# Nota: precisa expor porta adicional
+docker exec -it bookmenu-api npx prisma studio
+```
+
+### 💾 Backup e Restore do Banco
+
+```bash
+# Backup manual
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu > "/opt/bookmenu-docker/volumes/backups/backup-$TIMESTAMP.sql"
+
+# Backup comprimido
+docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu | gzip > "/opt/bookmenu-docker/volumes/backups/backup-$TIMESTAMP.sql.gz"
+
+# Restore de backup
+cat /opt/bookmenu-docker/volumes/backups/backup-XXXXXXXX-XXXXXX.sql | docker exec -i bookmenu-db psql -U bookmenu_user -d bookmenu
+
+# Restore de backup comprimido
+gunzip -c /opt/bookmenu-docker/volumes/backups/backup-XXXXXXXX-XXXXXX.sql.gz | docker exec -i bookmenu-db psql -U bookmenu_user -d bookmenu
+
+# Conectar ao banco via psql
+docker exec -it bookmenu-db psql -U bookmenu_user -d bookmenu
+
+# Comandos úteis dentro do psql:
+# \dt          -- Listar tabelas
+# \l           -- Listar bancos
+# \d tabela    -- Descrever tabela
+# \q           -- Sair
+```
+
+### ⚙️ Nginx - Atualizar Configuração
+
+```bash
+# Editar configuração do nginx
+nano /opt/bookmenu-docker/nginx/nginx.conf
+nano /opt/bookmenu-docker/nginx/conf.d/bookmenu.conf
+
+# Testar configuração do nginx
+docker exec bookmenu-proxy nginx -t
+
+# Recarregar nginx sem reiniciar container
+docker exec bookmenu-proxy nginx -s reload
+
+# Ou reiniciar container do nginx
+docker restart bookmenu-proxy
+```
+
+### 🔄 Variáveis de Ambiente
+
+> **⚠️ IMPORTANTE sobre variáveis `NEXT_PUBLIC_*`:**
+>
+> - Variáveis `NEXT_PUBLIC_*` são injetadas no **build time** (durante `npm run build`)
+> - Se alterar `NEXT_PUBLIC_API_URL`, precisa fazer **rebuild do frontend**
+> - Variáveis do backend são **runtime** - basta reiniciar o container
+
+```bash
+# Editar arquivo de ambiente
+nano /opt/bookmenu-docker/app/.env.production
+
+# Após alterar variáveis do BACKEND (runtime):
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml restart backend
+
+# Após alterar variáveis NEXT_PUBLIC_* (build time):
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml --env-file /opt/bookmenu-docker/app/.env.production up -d --build frontend
+
+# Verificar variáveis de ambiente de um container
+docker exec bookmenu-api env
+docker exec bookmenu-web env
+```
+
+### 🧹 Limpeza e Manutenção
+
+```bash
+# Remover containers parados
+docker container prune -f
+
+# Remover imagens não utilizadas
+docker image prune -f
+
+# Remover imagens antigas (dangling)
+docker image prune -a -f
+
+# Remover volumes não utilizados (CUIDADO!)
+docker volume prune -f
+
+# Limpeza geral (containers, redes, imagens não usadas)
+docker system prune -f
+
+# Limpeza completa incluindo volumes (CUIDADO: apaga dados!)
+docker system prune -a --volumes -f
+
+# Ver uso de disco do Docker
+docker system df
+
+# Ver uso de disco detalhado
+docker system df -v
+```
+
+### 🔍 Debug e Troubleshooting
+
+```bash
+# Entrar no container do backend
+docker exec -it bookmenu-api sh
+
+# Entrar no container do frontend
+docker exec -it bookmenu-web sh
+
+# Entrar no container do nginx
+docker exec -it bookmenu-proxy sh
+
+# Verificar se porta está em uso
+sudo lsof -i :80
+sudo lsof -i :443
+sudo lsof -i :3000
+sudo lsof -i :8080
+
+# Testar conectividade interna (de dentro do nginx)
+docker exec bookmenu-proxy curl -f http://bookmenu-api:8080/api-docs
+docker exec bookmenu-proxy curl -f http://bookmenu-web:3000
+
+# Verificar rede Docker
+docker network ls
+docker network inspect app_bookmenu-network
+
+# Verificar health check
+docker inspect --format='{{json .State.Health}}' bookmenu-api | jq
+docker inspect --format='{{json .State.Health}}' bookmenu-web | jq
+
+# Ver informações detalhadas do container
+docker inspect bookmenu-api
+```
+
+### 📝 Exemplo de .env.production Completo
+
+```ini
+# ===========================================
+# BOOKMENU - Variáveis de Ambiente Produção
+# ===========================================
+
+# Database
+DB_NAME=bookmenu
+DB_USER=bookmenu_user
+DB_PASSWORD=SuaSenhaSegura123!
+DB_PORT=5432
+
+# Application
+NODE_ENV=production
+JWT_SECRET=seu_jwt_secret_muito_seguro_aqui_min_32_chars
+JWT_EXPIRES_IN=24h
+LOG_LEVEL=info
+VERSION=1.0.0
+
+# URLs (ajuste para seu domínio)
+FRONTEND_URL=https://menu.cravil.com.br
+NEXT_PUBLIC_API_URL=https://menu.cravil.com.br/api
+
+# Monitoring
+GRAFANA_PASSWORD=admin_grafana_password
+
+# Docker
+COMPOSE_PROJECT_NAME=bookmenu
+DOCKER_BUILDKIT=1
+```
+
+### 🚀 Fluxo Completo de Deploy
+
+```bash
+# 1. Navegar para o diretório
+cd /opt/bookmenu-docker/app
+
+# 2. Parar containers existentes
+docker compose --env-file .env.production down
+
+# 3. Atualizar código (se usando git)
+cd backend && git pull && cd ..
+cd frontend && git pull && cd ..
+
+# 4. Rebuild das imagens
+docker compose --env-file .env.production build --no-cache
+
+# 5. Iniciar containers
+docker compose --env-file .env.production up -d
+
+# 6. Verificar status
+docker ps
+
+# 7. Executar migrações
+docker exec bookmenu-api npx prisma migrate deploy
+
+# 8. Verificar logs
+docker compose --env-file .env.production logs -f --tail=50
 ```
 
 ---
@@ -1043,13 +1734,13 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 
 Após seguir todos os passos, você terá:
 
-✅ Docker instalado e configurado
-✅ Aplicação containerizada
+✅ Docker instalado e configurado no Ubuntu 24.04 LTS
+✅ Aplicação containerizada (Backend + Frontend)
 ✅ Banco de dados PostgreSQL
 ✅ Proxy reverso Nginx com SSL
-✅ Backups automáticos
+✅ Backups automáticos via crontab
 ✅ Scripts de deploy automatizados
-✅ Firewall configurado
+✅ Firewall configurado (UFW)
 
 ### Acessos:
 
@@ -1059,3 +1750,72 @@ Após seguir todos os passos, você terá:
 | API                   | https://bookmenu.seudominio.com/api |
 | Grafana (opcional)    | http://seu-ip:3001                  |
 | Prometheus (opcional) | http://seu-ip:9090                  |
+
+### Estrutura Final:
+
+```
+/opt/bookmenu-docker/
+├── app/
+│   ├── backend/
+│   │   └── Dockerfile
+│   ├── frontend/
+│   │   └── Dockerfile
+│   ├── docker-compose.yml
+│   ├── docker-compose.monitoring.yml
+│   └── .env.production
+├── nginx/
+│   ├── nginx.conf
+│   └── conf.d/
+│       └── bookmenu.conf
+├── monitoring/
+│   └── prometheus/
+│       └── prometheus.yml
+├── scripts/
+│   ├── deploy.sh
+│   ├── backup.sh
+│   ├── renew-ssl.sh
+│   └── startup.sh
+├── secrets/
+└── volumes/
+    ├── postgres-data/
+    ├── app-logs/
+    ├── nginx-ssl/
+    │   ├── cert.pem
+    │   └── key.pem
+    └── backups/
+```
+
+### Comandos Rápidos:
+
+```bash
+# Deploy
+/opt/bookmenu-docker/scripts/deploy.sh
+
+# Status
+docker ps
+
+# Logs
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml logs -f
+
+# Parar
+docker compose -f /opt/bookmenu-docker/app/docker-compose.yml down
+
+# Backup manual
+docker exec bookmenu-db pg_dump -U bookmenu_user bookmenu > backup.sql
+
+# Reiniciar serviço específico
+docker restart bookmenu-api
+docker restart bookmenu-web
+docker restart bookmenu-proxy
+```
+
+---
+
+## 📚 Recursos Adicionais
+
+- [Documentação Docker](https://docs.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Nginx Documentation](https://nginx.org/en/docs/)
+- [Let's Encrypt](https://letsencrypt.org/docs/)
+- [Prisma Documentation](https://www.prisma.io/docs/)
+- [Next.js Deployment](https://nextjs.org/docs/deployment)
