@@ -4,6 +4,7 @@ import {
   makeTestScheduler,
 } from "../factories/makeAutoReservationScheduler"
 import { AutoReservationScheduler } from "../infrastructure/schedulers/AutoReservationScheduler"
+import { devLog, devError } from "@/app/shared"
 
 /**
  * Initializes the auto reservation scheduler based on the current environment
@@ -24,26 +25,24 @@ export function initializeAutoReservationScheduler(): AutoReservationScheduler |
     switch (environment) {
       case "production":
         scheduler = makeProductionScheduler()
-        console.log("🕐 Auto Reservation Scheduler initialized for PRODUCTION")
+        devLog("🕐 Auto Reservation Scheduler initialized for PRODUCTION")
         break
 
       case "development":
         scheduler = makeDevelopmentScheduler()
-        console.log(
+        devLog(
           "🕐 Auto Reservation Scheduler initialized for DEVELOPMENT (disabled by default)"
         )
         break
 
       case "test":
         scheduler = makeTestScheduler()
-        console.log(
-          "🕐 Auto Reservation Scheduler initialized for TEST (disabled)"
-        )
+        devLog("🕐 Auto Reservation Scheduler initialized for TEST (disabled)")
         break
 
       default:
         scheduler = makeDevelopmentScheduler()
-        console.log(
+        devLog(
           "🕐 Auto Reservation Scheduler initialized with default DEVELOPMENT settings"
         )
         break
@@ -52,16 +51,14 @@ export function initializeAutoReservationScheduler(): AutoReservationScheduler |
     // Start the scheduler if enabled
     if (scheduler.isEnabled()) {
       scheduler.start()
-      console.log("✅ Auto Reservation Scheduler started successfully")
+      devLog("✅ Auto Reservation Scheduler started successfully")
     } else {
-      console.log(
-        "⏸️ Auto Reservation Scheduler is disabled for this environment"
-      )
+      devLog("⏸️ Auto Reservation Scheduler is disabled for this environment")
     }
 
     return scheduler
   } catch (error) {
-    console.error("❌ Failed to initialize Auto Reservation Scheduler:", error)
+    devError("❌ Failed to initialize Auto Reservation Scheduler:", error)
     return null
   }
 }
@@ -75,9 +72,9 @@ export function shutdownAutoReservationScheduler(
   if (scheduler) {
     try {
       scheduler.stop()
-      console.log("🛑 Auto Reservation Scheduler stopped successfully")
+      devLog("🛑 Auto Reservation Scheduler stopped successfully")
     } catch (error) {
-      console.error("❌ Error stopping Auto Reservation Scheduler:", error)
+      devError("❌ Error stopping Auto Reservation Scheduler:", error)
     }
   }
 }

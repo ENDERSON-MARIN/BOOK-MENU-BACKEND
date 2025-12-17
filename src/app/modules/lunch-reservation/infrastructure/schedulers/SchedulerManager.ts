@@ -6,6 +6,7 @@ import {
   makeProductionScheduler,
   makeDevelopmentScheduler,
 } from "../../factories"
+import { devLog, devError } from "@/app/shared"
 
 export interface SchedulerManagerConfig {
   environment: "production" | "development" | "test"
@@ -37,7 +38,7 @@ export class SchedulerManager {
       // Create scheduler based on environment
       this.scheduler = this.createScheduler()
 
-      console.log(
+      devLog(
         `AutoReservationScheduler initialized for ${this.config.environment} environment`
       )
 
@@ -46,7 +47,7 @@ export class SchedulerManager {
         this.start()
       }
     } catch (error) {
-      console.error("Failed to initialize AutoReservationScheduler:", error)
+      devError("Failed to initialize AutoReservationScheduler:", error)
       throw error
     }
   }
@@ -60,7 +61,7 @@ export class SchedulerManager {
     }
 
     this.scheduler.start()
-    console.log("AutoReservationScheduler started")
+    devLog("AutoReservationScheduler started")
   }
 
   /**
@@ -68,12 +69,12 @@ export class SchedulerManager {
    */
   stop(): void {
     if (!this.scheduler) {
-      console.log("Scheduler not initialized, nothing to stop")
+      devLog("Scheduler not initialized, nothing to stop")
       return
     }
 
     this.scheduler.stop()
-    console.log("AutoReservationScheduler stopped")
+    devLog("AutoReservationScheduler stopped")
   }
 
   /**
@@ -150,7 +151,7 @@ export class SchedulerManager {
     if (this.scheduler) {
       this.stop()
       this.scheduler = null
-      console.log("AutoReservationScheduler shutdown completed")
+      devLog("AutoReservationScheduler shutdown completed")
     }
   }
 

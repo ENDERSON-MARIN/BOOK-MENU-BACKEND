@@ -51,13 +51,6 @@ export class ReservationController {
         })
 
       default:
-        // Log do erro completo para erros desconhecidos do Prisma
-        console.error("[ReservationController] Erro do Prisma não tratado:")
-        console.error("[ReservationController] Código:", code)
-        console.error("[ReservationController] Mensagem:", error.message)
-        console.error("[ReservationController] Meta:", error.meta)
-        console.error("[ReservationController] Stack:", error.stack)
-
         return res.status(500).json({
           error: "Erro interno do servidor",
         })
@@ -68,21 +61,6 @@ export class ReservationController {
    * Trata erros genéricos e retorna resposta HTTP apropriada
    */
   private handleError(error: unknown, res: Response): Response {
-    // Log completo do erro
-    console.error("[ReservationController] Erro capturado:")
-    console.error(
-      "[ReservationController] Tipo:",
-      error instanceof Error ? error.constructor.name : typeof error
-    )
-    console.error(
-      "[ReservationController] Mensagem:",
-      error instanceof Error ? error.message : String(error)
-    )
-    console.error(
-      "[ReservationController] Stack:",
-      error instanceof Error ? error.stack : "N/A"
-    )
-
     // Tratamento específico por tipo de erro
     if (error instanceof ZodError) {
       return res.status(400).json({
@@ -222,21 +200,6 @@ export class ReservationController {
       const { id } = uuidParamSchema.parse(req.params)
       const data = updateReservationSchema.parse(req.body)
 
-      // LOG DE INVESTIGAÇÃO: Parâmetros da requisição
-      console.log(
-        "[ReservationController.update] Iniciando atualização de reserva"
-      )
-      console.log("[ReservationController.update] ID da reserva:", id)
-      console.log(
-        "[ReservationController.update] Body da requisição:",
-        JSON.stringify(data, null, 2)
-      )
-      console.log(
-        "[ReservationController.update] Usuário:",
-        req.user.id,
-        req.user.name
-      )
-
       // Get reservation to check ownership
       const existingReservation = await this.reservationService.findById(id)
 
@@ -251,12 +214,6 @@ export class ReservationController {
       }
 
       const reservation = await this.reservationService.update(id, data)
-
-      // LOG DE INVESTIGAÇÃO: Sucesso
-      console.log(
-        "[ReservationController.update] Reserva atualizada com sucesso:",
-        reservation.id
-      )
 
       return res.status(200).json(reservation)
     } catch (error) {

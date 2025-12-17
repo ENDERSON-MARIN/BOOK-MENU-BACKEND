@@ -9,7 +9,7 @@ import {
   UpdateMenuDTO,
   CreateMenuCompositionDTO,
 } from "../../dtos/MenuDTOs"
-import { AppError } from "@/app/shared"
+import { AppError, devError } from "@/app/shared"
 
 export class MenuManagementService {
   constructor(
@@ -70,7 +70,7 @@ export class MenuManagementService {
       await this.createAutomaticVariations(createdMenu.id, menuData.menuItems)
     } catch (error) {
       // If variation creation fails, log but don't fail the menu creation
-      console.error("Erro ao criar variações automáticas:", error)
+      devError("Erro ao criar variações automáticas:", error)
       // Optionally, you could delete the menu here if variations are critical
       // await this.menuRepository.delete(createdMenu.id)
       // throw error

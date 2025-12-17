@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Request, Response, NextFunction } from "express"
-import { AppError } from "../../../app/shared"
+import { AppError, devError } from "../../../app/shared"
 
 export const errorHandler = (
   err: Error,
@@ -14,7 +14,7 @@ export const errorHandler = (
     })
   }
 
-  console.error("Internal server error:", err)
+  devError("Internal server error:", err)
 
   return res.status(500).json({
     error: "Internal server error",

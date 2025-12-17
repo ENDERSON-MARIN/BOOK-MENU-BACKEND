@@ -2,6 +2,7 @@ import {
   AutoReservationService,
   AutoReservationBatchResult,
 } from "../../domain/services/AutoReservationService"
+import { devLog, devError } from "@/app/shared"
 
 export interface SchedulerConfig {
   enabled: boolean
@@ -44,19 +45,19 @@ export class AutoReservationScheduler {
    */
   start(): void {
     if (this.isRunning) {
-      console.log("AutoReservationScheduler is already running")
+      devLog("AutoReservationScheduler is already running")
       return
     }
 
     if (!this.config.enabled) {
-      console.log("AutoReservationScheduler is disabled")
+      devLog("AutoReservationScheduler is disabled")
       return
     }
 
     this.isRunning = true
     this.status.isRunning = true
     this.scheduleNext()
-    console.log("AutoReservationScheduler started")
+    devLog("AutoReservationScheduler started")
   }
 
   /**
@@ -70,7 +71,7 @@ export class AutoReservationScheduler {
 
     this.isRunning = false
     this.status.isRunning = false
-    console.log("AutoReservationScheduler stopped")
+    devLog("AutoReservationScheduler stopped")
   }
 
   /**
@@ -104,7 +105,7 @@ export class AutoReservationScheduler {
    * Execute auto reservations manually (for testing or manual triggers)
    */
   async executeNow(): Promise<AutoReservationBatchResult> {
-    console.log("Executing auto reservations manually...")
+    devLog("Executing auto reservations manually...")
     return await this.executeAutoReservations()
   }
 
@@ -126,7 +127,7 @@ export class AutoReservationScheduler {
       this.scheduleNext() // Schedule the next execution
     }, delay)
 
-    console.log(
+    devLog(
       `Next auto reservation execution scheduled for: ${nextExecution.toISOString()}`
     )
   }
@@ -157,7 +158,7 @@ export class AutoReservationScheduler {
    * Execute the scheduled task with retry logic
    */
   private async executeScheduledTask(): Promise<void> {
-    console.log("Executing scheduled auto reservations...")
+    devLog("Executing scheduled auto reservations...")
 
     try {
       const result = await this.executeAutoReservations()
@@ -175,14 +176,14 @@ export class AutoReservationScheduler {
 
     for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
       try {
-        console.log(
+        devLog(
           `Auto reservation attempt ${attempt}/${this.config.retryAttempts}`
         )
 
         const result =
           await this.autoReservationService.processScheduledAutoReservations()
 
-        console.log(`Auto reservations completed successfully:`, {
+        devLog(`Auto reservations completed successfully:`, {
           totalUsers: result.totalUsers,
           successful: result.successfulReservations,
           failed: result.failedReservations,
@@ -192,7 +193,7 @@ export class AutoReservationScheduler {
         return result
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        console.error(
+        devError(
           `Auto reservation attempt ${attempt} failed:`,
           lastError.message
         )
@@ -216,7 +217,7 @@ export class AutoReservationScheduler {
     this.status.lastResult = result
     this.status.consecutiveFailures = 0
 
-    console.log("Auto reservation execution completed successfully")
+    devLog("Auto reservation execution completed successfully")
   }
 
   /**
@@ -227,7 +228,7 @@ export class AutoReservationScheduler {
     this.status.consecutiveFailures++
 
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error(
+    devError(
       `Auto reservation execution failed (${this.status.consecutiveFailures} consecutive failures):`,
       errorMessage
     )
@@ -238,9 +239,7 @@ export class AutoReservationScheduler {
     // - Logging to external monitoring systems
 
     if (this.status.consecutiveFailures >= 5) {
-      console.error(
-        "Too many consecutive failures. Consider checking the system."
-      )
+      devError("Too many consecutive failures. Consider checking the system.")
     }
   }
 
@@ -278,11 +277,11 @@ export class AutoReservationScheduler {
    */
   async retryLastFailedReservations(): Promise<AutoReservationBatchResult | null> {
     if (!this.status.lastResult) {
-      console.log("No previous execution result to retry")
+      devLog("No previous execution result to retry")
       return null
     }
 
-    console.log("Retrying failed reservations from last execution...")
+    devLog("Retrying failed reservations from last execution...")
 
     try {
       const retryResult =
@@ -290,14 +289,14 @@ export class AutoReservationScheduler {
           this.status.lastResult
         )
 
-      console.log("Retry completed:", {
+      devLog("Retry completed:", {
         successful: retryResult.successfulReservations,
         failed: retryResult.failedReservations,
       })
 
       return retryResult
     } catch (error) {
-      console.error("Failed to retry reservations:", error)
+      devError("Failed to retry reservations:", error)
       throw error
     }
   }
@@ -308,7 +307,7 @@ export class AutoReservationScheduler {
   async createReservationsForDate(
     date: Date
   ): Promise<AutoReservationBatchResult> {
-    console.log(
+    devLog(
       `Creating auto reservations for specific date: ${date.toISOString()}`
     )
 
@@ -316,7 +315,7 @@ export class AutoReservationScheduler {
       const result =
         await this.autoReservationService.createAutoReservationsForDate(date)
 
-      console.log(`Manual reservations for ${date.toDateString()} completed:`, {
+      devLog(`Manual reservations for ${date.toDateString()} completed:`, {
         totalUsers: result.totalUsers,
         successful: result.successfulReservations,
         failed: result.failedReservations,
@@ -324,7 +323,7 @@ export class AutoReservationScheduler {
 
       return result
     } catch (error) {
-      console.error(
+      devError(
         `Failed to create reservations for ${date.toDateString()}:`,
         error
       )
@@ -339,7 +338,7 @@ export class AutoReservationScheduler {
     startDate: Date,
     endDate: Date
   ): Promise<AutoReservationBatchResult[]> {
-    console.log(
+    devLog(
       `Creating auto reservations for date range: ${startDate.toDateString()} to ${endDate.toDateString()}`
     )
 
@@ -359,7 +358,7 @@ export class AutoReservationScheduler {
         0
       )
 
-      console.log(`Bulk reservations completed:`, {
+      devLog(`Bulk reservations completed:`, {
         daysProcessed: results.length,
         totalSuccessful,
         totalFailed,
@@ -367,7 +366,7 @@ export class AutoReservationScheduler {
 
       return results
     } catch (error) {
-      console.error(`Failed to create reservations for date range:`, error)
+      devError(`Failed to create reservations for date range:`, error)
       throw error
     }
   }

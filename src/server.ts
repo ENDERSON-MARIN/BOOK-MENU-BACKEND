@@ -7,6 +7,7 @@ import {
   initializeAutoReservationScheduler,
   shutdownAutoReservationScheduler,
 } from "./app/modules"
+import { devLog } from "./app/shared"
 
 // --- Central Composition Point (Where the Magic Happens) ---
 // Create Main Router (factories are called within individual route modules)
@@ -31,28 +32,26 @@ const autoReservationScheduler = initializeAutoReservationScheduler()
 const PORT = process.env.PORT || 3000
 
 httpServer.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`)
-  console.log(
-    `📚 API Documentation available at http://localhost:${PORT}/api-docs`
-  )
-  console.log(`🔌 WebSocket server initialized`)
+  devLog(`✅ Server running on http://localhost:${PORT}`)
+  devLog(`📚 API Documentation available at http://localhost:${PORT}/api-docs`)
+  devLog(`🔌 WebSocket server initialized`)
 })
 
 // Graceful shutdown handling
 process.on("SIGTERM", () => {
-  console.log("🛑 SIGTERM received, shutting down gracefully...")
+  devLog("🛑 SIGTERM received, shutting down gracefully...")
   shutdownAutoReservationScheduler(autoReservationScheduler)
   httpServer.close(() => {
-    console.log("✅ Server closed successfully")
+    devLog("✅ Server closed successfully")
     process.exit(0)
   })
 })
 
 process.on("SIGINT", () => {
-  console.log("🛑 SIGINT received, shutting down gracefully...")
+  devLog("🛑 SIGINT received, shutting down gracefully...")
   shutdownAutoReservationScheduler(autoReservationScheduler)
   httpServer.close(() => {
-    console.log("✅ Server closed successfully")
+    devLog("✅ Server closed successfully")
     process.exit(0)
   })
 })
