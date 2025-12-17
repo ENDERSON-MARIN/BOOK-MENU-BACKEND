@@ -1,5 +1,6 @@
 import { Router, Request, Response, type IRouter } from "express"
 import { makeLunchReservationModule } from "@/app/modules"
+import { devLog, devError } from "@/app/shared"
 
 const cronRouter: IRouter = Router()
 
@@ -24,7 +25,7 @@ cronRouter.post("/auto-reservations", async (req: Request, res: Response) => {
       }
     }
 
-    console.log("🕐 Executing scheduled auto reservations via Vercel Cron...")
+    devLog("🕐 Executing scheduled auto reservations via Vercel Cron...")
 
     // Get the auto reservation service
     const lunchReservationModule = makeLunchReservationModule()
@@ -34,7 +35,7 @@ cronRouter.post("/auto-reservations", async (req: Request, res: Response) => {
     const result =
       await autoReservationService.processScheduledAutoReservations()
 
-    console.log("✅ Auto reservations completed:", {
+    devLog("✅ Auto reservations completed:", {
       totalUsers: result.totalUsers,
       successful: result.successfulReservations,
       failed: result.failedReservations,
@@ -52,7 +53,7 @@ cronRouter.post("/auto-reservations", async (req: Request, res: Response) => {
       },
     })
   } catch (error) {
-    console.error("❌ Error executing auto reservations:", error)
+    devError("❌ Error executing auto reservations:", error)
 
     return res.status(500).json({
       success: false,
@@ -75,7 +76,7 @@ cronRouter.post(
     }
 
     try {
-      console.log("🔧 Manual trigger: Executing auto reservations...")
+      devLog("🔧 Manual trigger: Executing auto reservations...")
 
       const lunchReservationModule = makeLunchReservationModule()
       const autoReservationService =
@@ -89,7 +90,7 @@ cronRouter.post(
         data: result,
       })
     } catch (error) {
-      console.error("❌ Error in manual trigger:", error)
+      devError("❌ Error in manual trigger:", error)
 
       return res.status(500).json({
         success: false,
@@ -124,7 +125,7 @@ cronRouter.post(
         })
       }
 
-      console.log(
+      devLog(
         `🗓️ Creating auto reservations for date: ${targetDate.toISOString()}`
       )
 
@@ -140,7 +141,7 @@ cronRouter.post(
         data: result,
       })
     } catch (error) {
-      console.error("❌ Error creating reservations for date:", error)
+      devError("❌ Error creating reservations for date:", error)
 
       return res.status(500).json({
         success: false,

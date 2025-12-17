@@ -6,7 +6,7 @@ import { UserRepository } from "../repositories/UserRepository"
 import { MenuRepository } from "../repositories/MenuRepository"
 import { WeekDayManagementService } from "./WeekDayManagementService"
 import { CreateReservationDTO } from "../../dtos/ReservationDTOs"
-import { AppError } from "@/app/shared"
+import { AppError, devError } from "@/app/shared"
 
 export interface AutoReservationResult {
   userId: string
@@ -227,7 +227,7 @@ export class AutoReservationService {
         weekResults.push(dayResult)
       } catch (error) {
         // Log error but continue with other dates
-        console.error(
+        devError(
           `Failed to create auto reservations for ${date.toISOString()}:`,
           error
         )
@@ -261,7 +261,7 @@ export class AutoReservationService {
         rangeResults.push(dayResult)
       } catch (error) {
         // Log error but continue with other dates
-        console.error(
+        devError(
           `Failed to create auto reservations for ${date.toISOString()}:`,
           error
         )
@@ -315,7 +315,7 @@ export class AutoReservationService {
         })
         cancelledReservations.push(reservation.id)
       } catch (error) {
-        console.error(`Failed to cancel reservation ${reservation.id}:`, error)
+        devError(`Failed to cancel reservation ${reservation.id}:`, error)
       }
     }
 

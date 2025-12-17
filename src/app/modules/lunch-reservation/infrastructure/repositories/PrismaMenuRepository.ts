@@ -116,27 +116,6 @@ export class PrismaMenuRepository implements MenuRepository {
     const normalizedDate = new Date(date)
     normalizedDate.setUTCHours(0, 0, 0, 0)
 
-    console.log(
-      "🔍 Searching for menu with date:",
-      normalizedDate.toISOString()
-    )
-
-    // Try to find all menus to debug
-    const allMenus = await this.prisma.menu.findMany({
-      select: {
-        id: true,
-        date: true,
-      },
-      take: 5,
-    })
-    console.log(
-      "📅 Sample menus in database:",
-      allMenus.map((m) => ({
-        id: m.id,
-        date: m.date.toISOString(),
-      }))
-    )
-
     // Try with findUnique first
     let menu = await this.prisma.menu.findUnique({
       where: { date: normalizedDate },
@@ -160,10 +139,6 @@ export class PrismaMenuRepository implements MenuRepository {
 
     // If not found, try with date range (to handle potential timezone issues)
     if (!menu) {
-      console.log(
-        "⚠️ Menu not found with findUnique, trying with date range..."
-      )
-
       const startOfDay = new Date(normalizedDate)
       startOfDay.setUTCHours(0, 0, 0, 0)
 
@@ -196,10 +171,7 @@ export class PrismaMenuRepository implements MenuRepository {
       })
 
       menu = menus[0] || null
-      console.log("🔄 Found with date range:", menu ? "YES" : "NO")
     }
-
-    console.log("✅ Final result:", menu ? "FOUND" : "NOT FOUND")
 
     if (!menu) return null
 

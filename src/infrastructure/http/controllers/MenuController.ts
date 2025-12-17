@@ -44,16 +44,12 @@ export class MenuController {
     try {
       const { date } = dateParamSchema.parse(req.params)
 
-      console.log("📥 Received date parameter:", date)
-
       // Normalize date to avoid timezone issues
       // Parse YYYY-MM-DD and create date at midnight UTC
       const [year, month, day] = date.split("-").map(Number)
       const normalizedDate = new Date(
         Date.UTC(year, month - 1, day, 0, 0, 0, 0)
       )
-
-      console.log("🔧 Normalized date:", normalizedDate.toISOString())
 
       const menu =
         await this.menuManagementService.findWithCompositionByDate(
